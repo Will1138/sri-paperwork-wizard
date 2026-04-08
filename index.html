@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRI Pte Ltd - Transaction Paperwork Wizard</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body class="bg-white">
+    <div id="root"></div>
+
+    <script type="module">
+        import React from 'https://esm.sh/react@18';
+        import ReactDOM from 'https://esm.sh/react-dom@18/client';
+
+        // Sub-components defined OUTSIDE the main component to prevent
+        // re-creation on every render (which causes inputs to lose focus)
+        const CardButton = ({ selected, onClick, children, className = '' }) =>
+            React.createElement('button', {
+                onClick,
+                className: `p-6 rounded-lg border-2 transition-all text-left ${selected ? 'border-purple-600 bg-purple-50' : 'border-gray-300 bg-white hover:border-purple-400'} ${className}`
+            }, children);
+
+        const FormSection = ({ title, children }) =>
+            React.createElement('div', { className: 'mb-8' },
+                React.createElement('h3', { className: 'text-lg font-semibold mb-4', style: { color: '#5B2D8E' } }, title),
+                React.createElement('div', { className: 'space-y-4' }, children)
+            );
+
+        const InputField = ({ label, value, onChange, type = 'text', required = false, ...props }) =>
+            React.createElement('div', null,
+                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
+                    label,
+                    required && React.createElement('span', { className: 'text-red-500' }, '*')
+                ),
+                React.createElement('input', {
+                    type,
+                    value,
+                    onChange: (e) => onChange(e.target.value),
+                    className: `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${required && !value ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'}`,
+                    ...props
+                })
+            );
+
+        const SelectField = ({ label, value, onChange, options, required = false }) =>
+            React.createElement('div', null,
+                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
+                    label,
+                    required && React.createElement('span', { className: 'text-red-500' }, '*')
+                ),
+                React.createElement('select', {
+                    value,
+                    onChange: (e) => onChange(e.target.value),
+                    className: `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${required && !value ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-purple-500'}`
+                },
+                    React.createElement('option', { value: '' }, 'Select...'),
+                    options.map((opt) =>
+                        React.createElement('option', { key: opt.value, value: opt.value }, opt.label)
+                    )
+                )
+            );
+
+        const CheckboxField = ({ label, checked, onChange }) =>
+            React.createElement('div', { className: 'flex items-center' },
+                React.createElement('input', {
+                    type: 'checkbox',
+                    checked,
+                    onChange: (e) => onChange(e.target.checked),
+                    className: 'w-5 h-5 rounded text-purple-600 focus:ring-2 focus:ring-purple-500'
+                }),
+                React.createElement('label', { className: 'ml-3 text-sm text-gray-700' }, label)
+            );
+
+        const ProgressBar = ({ step, transactionType }) => {
+            const totalSteps = transactionType === 'RoomRental' ? 4 : 5;
+            const currentStep = transactionType === 'RoomRental' && step > 2 ? step - 1 : step;
+            const progress = (currentStep / totalSteps) * 100;
+
+            return React.createElement('div', { className: 'mb-8' },
+                React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                    React.createElement('h1', { className: 'text-3xl font-bold', style: { color: '#5B2D8E' } }, 'SRI Paperwork Wizard'),
+                    React.createElement('span', { className: 'text-gray-600 text-sm' }, `Step ${currentStep} of ${totalSteps}`)
+                ),
+                React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2' },
+                    React.createElement('div', {
+                        className: 'h-2 rounded-full transition-all duration-300',
+                        style: { width: `${progress}%`, backgroundColor: '#F5A623' }
+                    })
+                )
+            );
+        };
+
+        // Main app component
+        const SRIPaperworkApp = () => {
+            const [step, setStep] = React.useState(1);
+            const [formData, setFormData] = React.useReducer(
+                (state, action) => {
+                    switch (action.type) {
+                        case 'SET_FIELD':
+                            return { ...state, [action.field]: action.value };
+                        case 'RESET':
+                            return {};
+                        default:
+                            return state;
+                    }
+                },
+                {
+                    transactionType: null,
+                    propertyType: null,
+                    role: null,
+                    agencyType: null,
+                    cobroke: null,
+                    selectedForms: {},
+                    thresholdExceeded: false,
+                    agentName: '',
+                    ceaRegistration: '',
+                    agentContact: '',
+                    clientName: '',
+                    clientNRIC: '',
+                    clientAddress: '',
+                    clientContact: '',
+                    clientNationality: '',
+                    clientDOB: '',
+                    clientOccupation: '',
+                    clientSourceOfFunds: '',
+                    clientPEP: false,
+                    clientActingOnBehalf: false,
+                    propertyAddress: '',
+                    floorArea: '',
+                    transactionPrice: '',
+                    commissionRate: '',
+                    commissionGST: false,
+                    leaseStartDate: '',
+                    leaseEndDate: '',
+                    securityDeposit: '',
+                    exclusiveStartDate: '',
+                    exclusiveEndDate: '',
+                    counterpartyName: '',
+                    counterpartyNRIC: '',
+                    counterpartyAddress: '',
+                    counterpartyContact: '',
+                    cobrokeAgentName: '',
+                    cobrokeAgentCEA: '',
+                    cobrokeAgentMobile: '',
+                    cobrokeAgentAgency: '',
+                }
+            );
+
+            const updateField = (field, value) => {
+                setFormData({ type: 'SET_FIELD', field, value });
+            };
+
+            const updateForm = (formName, checked) => {
+                setFormData({
+                    type: 'SET_FIELD',
+                    field: 'selectedForms',
+                    value: { ...formData.selectedForms, [formName]: checked }
+                });
+            };
+
+            const getRequiredForms = () => {
+                const forms = { mustSign: [], transaction: [], amlkyc: [], special: [] };
+
+                if (!formData.transactionType || !formData.propertyType || !formData.role) {
+                    return forms;
+                }
+
+                if (formData.transactionType === 'RoomRental') {
+                    forms.transaction.push({ id: 'roomRental', name: 'Room Rental Agreement' });
+                    return forms;
+                }
+
+                const isExclusive = formData.agencyType === 'Exclusive';
+                const isProp = formData.propertyType === 'Private' || formData.propertyType === 'HDB';
+
+                if (isProp) {
+                    if (formData.role === 'Seller/Landlord' && formData.transactionType !== 'Rental') {
+                        forms.mustSign.push({ id: isExclusive ? 'Form5' : 'Form1', name: isExclusive ? 'Exclusive Agency Agreement (Seller)' : 'Non-Exclusive Agency Agreement (Seller)' });
+                    } else if (formData.role === 'Buyer/Tenant' && formData.transactionType !== 'Rental') {
+                        forms.mustSign.push({ id: isExclusive ? 'Form6' : 'Form2', name: isExclusive ? 'Exclusive Agency Agreement (Buyer)' : 'Non-Exclusive Agency Agreement (Buyer)' });
+                    } else if (formData.role === 'Seller/Landlord' && formData.transactionType === 'Rental') {
+                        forms.mustSign.push({ id: isExclusive ? 'Form7' : 'Form3', name: isExclusive ? 'Exclusive Agency Agreement (Landlord)' : 'Non-Exclusive Agency Agreement (Landlord)' });
+                    } else if (formData.role === 'Buyer/Tenant' && formData.transactionType === 'Rental') {
+                        forms.mustSign.push({ id: isExclusive ? 'Form8' : 'Form4', name: isExclusive ? 'Exclusive Agency Agreement (Tenant)' : 'Non-Exclusive Agency Agreement (Tenant)' });
+                    }
+                } else {
+                    const commMap = {
+                        'Seller/Landlord': 'CommSeller',
+                        'Buyer/Tenant': 'CommBuyer'
+                    };
+                    forms.mustSign.push({ id: commMap[formData.role], name: 'Exclusive Agency Agreement (Commercial)' });
+                }
+
+                if (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase') {
+                    const hdbSuffix = formData.propertyType === 'HDB' ? '_hdb' : '';
+                    const roleKey = formData.role === 'Seller/Landlord' ? 'seller' : 'buyer';
+                    const roleLabel = formData.role === 'Seller/Landlord' ? 'Seller' : 'Buyer';
+                    forms.mustSign.push({
+                        id: `commission_${roleKey}${hdbSuffix}`,
+                        name: `Commission Agreement (${roleLabel}${hdbSuffix ? ' - HDB' : ''})`
+                    });
+                } else if (formData.transactionType === 'Rental') {
+                    forms.mustSign.push({
+                        id: `commission_${formData.role === 'Seller/Landlord' ? 'landlord' : 'tenant'}`,
+                        name: `Commission Agreement (${formData.role === 'Seller/Landlord' ? 'Landlord' : 'Tenant'})`
+                    });
+                }
+
+                if (formData.cobroke === 'Cobroke') {
+                    const cobrokeRole = formData.role === 'Seller/Landlord'
+                        ? (formData.transactionType === 'Rental' ? 'landlord' : 'seller')
+                        : (formData.transactionType === 'Rental' ? 'tenant' : 'buyer');
+                    forms.mustSign.push({
+                        id: `cobroke_${cobrokeRole}`,
+                        name: `Co-Broke Agreement (SRI Representing ${cobrokeRole.charAt(0).toUpperCase() + cobrokeRole.slice(1)})`
+                    });
+                }
+
+                forms.amlkyc.push(
+                    { id: 'formA1', name: 'Form A1 (Client - Individual)' },
+                    { id: 'formA2', name: 'Form A2 (Client - Entity)' },
+                    { id: 'formB', name: 'Form B (Client)' }
+                );
+
+                if (formData.cobroke === 'Solo') {
+                    forms.amlkyc.push(
+                        { id: 'formU1', name: 'Form U1 (Counterparty - Individual)' },
+                        { id: 'formU5', name: 'Form U5 (Counterparty)' }
+                    );
+                }
+
+                if (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase') {
+                    forms.transaction.push({ id: 'otp', name: 'Offer to Purchase (OTP)' });
+                } else if (formData.transactionType === 'Rental') {
+                    forms.transaction.push(
+                        { id: 'loi', name: 'Letter of Intent (LOI)' },
+                        { id: 'tenancyAgreement', name: 'Tenancy Agreement' }
+                    );
+                }
+
+                if (formData.transactionType === 'Rental' && (formData.propertyType === 'HDB' || formData.propertyType === 'Private')) {
+                    forms.special.push({ id: 'womensCharter', name: "Women's Charter Checklist" });
+                }
+
+                if (formData.thresholdExceeded && (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase')) {
+                    forms.special.push({ id: 'salespersonDeclaration', name: 'Salesperson Declaration (≥S$3M)' });
+                }
+
+                return forms;
+            };
+
+            const requiredForms = getRequiredForms();
+            const allForms = [
+                ...requiredForms.mustSign,
+                ...requiredForms.transaction,
+                ...requiredForms.amlkyc,
+                ...requiredForms.special
+            ];
+
+            const validateStep = () => {
+                if (step === 1) {
+                    return formData.transactionType && formData.propertyType && formData.role;
+                }
+                if (step === 2) {
+                    if (formData.transactionType === 'RoomRental') return true;
+                    return formData.agencyType && formData.cobroke;
+                }
+                if (step === 3) {
+                    return Object.values(formData.selectedForms).some(v => v === true);
+                }
+                if (step === 4) {
+                    return (
+                        formData.agentName &&
+                        formData.ceaRegistration &&
+                        formData.agentContact &&
+                        formData.clientName &&
+                        formData.clientNRIC &&
+                        formData.clientAddress &&
+                        formData.propertyAddress &&
+                        formData.transactionPrice
+                    );
+                }
+                return true;
+            };
+
+            const handleNext = () => {
+                if (validateStep()) {
+                    if (formData.transactionType === 'RoomRental' && step === 1) {
+                        setStep(3);
+                    } else {
+                        setStep(step + 1);
+                    }
+                }
+            };
+
+            const handleBack = () => {
+                if (formData.transactionType === 'RoomRental' && step === 3) {
+                    setStep(1);
+                } else {
+                    setStep(step - 1);
+                }
+            };
+
+            const [generating, setGenerating] = React.useState(false);
+            const [genStatus, setGenStatus] = React.useState('');
+
+            // Map form IDs to actual template filenames in the "realtor forms/" folder
+            const templateMap = {
+                // Agency Agreements (Forms 1-8) - .docx
+                'Form1': '(Form 1) Estate Agency Agreement for the Sale of Residential Property.docx',
+                'Form2': '(Form 2) Estate Agency Agreement for the Purchase of Residential Property.docx',
+                'Form3': '(Form 3) Estate Agency Agreement for the Lease of Residential Property by a Landlord.docx',
+                'Form4': '(Form 4) Estate Agency Agreement for the Lease of Residential Property by a Tenant.docx',
+                'Form5': '(Form 5) Exclusive Estate Agency Agreement for the Sale of Residential Property.docx',
+                'Form6': '(Form 6) Exclusive Estate Agency Agreement for the Purchase of Residential Property.docx',
+                'Form7': '(Form 7) Exclusive Estate Agency Agreement for the Lease of Residential Property by a Landlord.docx',
+                'Form8': '(Form 8) Exclusive Estate Agency Agreement for the Lease of Residential Property by a Tenant.docx',
+                // Commission Agreements - .docx
+                'commission_seller': 'Commission Agreement - Seller.docx',
+                'commission_buyer': 'Commission Agreement - Buyer.docx',
+                'commission_landlord': 'Commission Agreement - Landlord.docx',
+                'commission_tenant': 'Commission Agreement - Tenant.docx',
+                'commission_seller_hdb': 'Commission Agreement - Seller (HDB).docx',
+                'commission_buyer_hdb': 'Commission Agreement - Buyer (HDB).docx',
+                // Commercial Agency - .docx
+                'CommSeller': 'Exclusive Commercial & Industrial Agreement (Representing Seller).docx',
+                'CommBuyer': 'Exclusive Commercial & Industrial Agreement (Representing Buyer).docx',
+                'CommLandlord': 'Exclusive Commercial & Industrial Agreement (Representing Landlord).docx',
+                'CommTenant': 'Exclusive Commercial & Industrial Agreement (Representing Tenant).docx',
+                // Cobroke - .docx
+                'cobroke_seller': 'Cobroke Agreement - SRI Representing Seller.docx',
+                'cobroke_buyer': 'Cobroke Agreement - SRI Representing Buyer.docx',
+                'cobroke_landlord': 'Cobroke Agreement - SRI Representing Landlord.docx',
+                'cobroke_tenant': 'Cobroke Agreement - SRI Representing Tenant.docx',
+                // Transaction docs - .docx and .doc
+                'otp': 'PTE RESIDENTIAL Option To Purchase.docx',
+                'offerToPurchase': 'PTE RESIDENTIAL Offer to Purchase.doc',
+                'loi_landlord': 'PTE RESIDENTIAL Letter of Intent (Representing Landlord).docx',
+                'loi_tenant': 'PTE RESIDENTIAL Letter of Intent (Representing Tenant).docx',
+                'letterOfOffer': 'PTE RESIDENTIAL Letter of Offer (Representing Landlord)-2.docx',
+                'tenancyAgreement': 'PTE RESIDENTIAL Tenancy Agreement.doc',
+                'tenancyAgreement_hdb': 'Tenancy Agreement (HDB).docx',
+                'tenancyAgreement_ci': 'Tenancy Agreement (Industrial & Commercial).doc',
+                'tenancyAgreement_ci_fror': 'Tenancy Agreement (Industrial & Commercial - First Right of Refusal).doc',
+                'otp_hdb': 'Option to Purchase (Commercial) - HDB.docx',
+                'otp_ci': 'INDUSTRIAL & COMMERCIAL Option to Purchase.docx',
+                'otp_ci_jtc': 'INDUSTRIAL & COMMERCIAL Option to Purchase (JTC).docx',
+                'offerToPurchase_ci': 'INDUSTRIAL & COMMERCIAL Offer to Purchase.doc',
+                'loi_ci': 'INDUSTRIAL & COMMERCIAL Letter of Intent.doc',
+                'roomRental': 'Room Rental Agreement.doc',
+                // AML/KYC - PDF only
+                'formA1': 'Form A1.pdf',
+                'formA2': 'Form A2.pdf',
+                'formA3': 'Form A3.pdf',
+                'formA4': 'Form A4.pdf',
+                'formB': 'Form B.pdf',
+                'formC': 'Form C.pdf',
+                'formD': 'Form D.pdf',
+                'formU1': 'Form U1.pdf',
+                'formU2': 'Form U2.pdf',
+                'formU3': 'Form U3.pdf',
+                'formU4': 'Form U4.pdf',
+                'formU5': 'Form U5.pdf',
+                'formU6': 'Form U6.pdf',
+                // Special
+                'salespersonDeclaration': 'Salesperson Declaration (Sales Transaction $3M and Above)_1627816026.pdf',
+                'womensCharter': "Women's Charter Checklist for Lease of Residential Properties.pdf",
+                'internalMutual': 'Internal Mutual Agreement.docx',
+                'commissionSharing': 'SRI Commission Sharing Agreement.docx',
+            };
+
+            // Fetch a template file from the co-hosted "realtor forms" folder
+            const fetchTemplate = async (filename) => {
+                const url = `./realtor forms/${encodeURIComponent(filename)}`;
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`Could not load template: ${filename} (${resp.status})`);
+                return await resp.arrayBuffer();
+            };
+
+            // Fill a .docx template by replacing underscore blanks in the XML
+            // Templates use patterns like "Date : ___________" or "Name : ___________"
+            // We find underscore runs in <w:t> elements and replace based on context
+            // Convert a number to words (e.g., 2500000 → "Two Million Five Hundred Thousand")
+            const numberToWords = (num) => {
+                if (num === 0) return 'Zero';
+                const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+                    'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+                const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+                const scales = ['','Thousand','Million','Billion'];
+                const toWords = (n) => {
+                    if (n === 0) return '';
+                    if (n < 20) return ones[n];
+                    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+                    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + toWords(n % 100) : '');
+                };
+                const n = Math.abs(Math.floor(parseFloat(String(num).replace(/,/g, '')) || 0));
+                if (n === 0) return 'Zero';
+                const parts = [];
+                let remaining = n;
+                for (let i = 0; remaining > 0; i++) {
+                    const chunk = remaining % 1000;
+                    if (chunk > 0) parts.unshift(toWords(chunk) + (scales[i] ? ' ' + scales[i] : ''));
+                    remaining = Math.floor(remaining / 1000);
+                }
+                return parts.join(' ');
+            };
+
+            // Format number with commas (e.g., 2500000 → "2,500,000")
+            const formatPrice = (val) => {
+                const n = parseFloat(String(val).replace(/,/g, '')) || 0;
+                return n.toLocaleString('en-US');
+            };
+
+            const fillDocxTemplate = (arrayBuffer) => {
+                console.log('[FILL] Starting fillDocxTemplate, buffer size:', arrayBuffer.byteLength);
+                const zip = new PizZip(arrayBuffer);
+                const xmlFile = zip.file('word/document.xml');
+                if (!xmlFile) { console.warn('[FILL] No word/document.xml found!'); return zip; }
+
+                let xml = xmlFile.asText();
+                console.log('[FILL] XML length:', xml.length);
+                const today = new Date().toLocaleDateString('en-SG');
+                const priceInWords = numberToWords(formData.transactionPrice);
+                const priceFormatted = formatPrice(formData.transactionPrice);
+                const roleLabel = formData.role === 'Seller/Landlord'
+                    ? (formData.transactionType === 'Rental' ? 'Landlord' : 'Seller')
+                    : (formData.transactionType === 'Rental' ? 'Tenant' : 'Buyer');
+
+                // Step 1: Extract all text content to build context for matching
+                // We concatenate text from <w:t> tags to understand the document flow
+                const textParts = [];
+                const regex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+                let m;
+                while ((m = regex.exec(xml)) !== null) {
+                    textParts.push({ text: m[1], index: m.index, fullMatch: m[0], captureStart: m.index + m[0].indexOf(m[1]) });
+                }
+
+                // Step 2: Build a flat text string and track positions back to XML
+                let flatText = '';
+                const posMap = []; // maps flat text position → textParts index
+                for (let i = 0; i < textParts.length; i++) {
+                    const start = flatText.length;
+                    flatText += textParts[i].text;
+                    for (let j = 0; j < textParts[i].text.length; j++) {
+                        posMap.push(i);
+                    }
+                }
+
+                // Step 3: Define context-based replacement rules
+                // Each rule: regex to find in the flat text, capture group 1 = underscores to replace
+                // Rules are applied in order; each rule matches at most once.
+                // For CEA forms (Forms 1-8), fields look like "Seller (1) Name: ___"
+                // For Commission Agreements, fields look like "Name : ___________________"
+                const replacements = [
+                    // === DATE FIELDS ===
+                    { pattern: /Date\s*:?\s*(_{3,})/, value: today },
+                    { pattern: /dated this\s*(_{3,})/, value: today },
+                    { pattern: /Agreement Date\/(_{3,})/, value: today },
+
+                    // === AGENT / SALESPERSON ===
+                    { pattern: /Salesperson[\s\S]{0,30}?Name\s*:?\s*(_{3,})/, value: formData.agentName },
+                    { pattern: /CEA Reg\.?\s*No\.?\s*:?\s*(_{3,})/, value: formData.ceaRegistration },
+                    { pattern: /Registration No\.?\s*:?\s*(_{3,})/, value: formData.ceaRegistration },
+                    // Cobroke agreement: first "Name: ___" after "representing Seller/Buyer(s)"
+                    { pattern: /representing\s+(?:Seller|Buyer|Landlord|Tenant)\(s\)Name\s*:\s*(_{3,})/, value: formData.agentName },
+                    // Cobroke: first "CEA No.: ___" (before the second one)
+                    { pattern: /CEA No\.\s*:\s*(_{3,})\s*CEA No\./, value: formData.ceaRegistration },
+                    // Cobroke: first "Mobile: ___" (before the second one)
+                    { pattern: /Mobile\s*:\s*(_{3,})\s*Mobile/, value: formData.agentContact },
+
+                    // === CLIENT NAME ===
+                    // Commission Agreement style: "To : ___ (Billing Name)"
+                    { pattern: /To\s*:?\s*(_{3,})[\s\S]{0,20}?\(?Billing Name\)?/, value: formData.clientName },
+                    // CEA form style: "Seller (1) Name: ___" or "Buyer (1) Name: ___"
+                    { pattern: /(?:Seller|Buyer|Landlord|Tenant)\s*\(1\)\s*Name\s*:?\s*(_{3,})/, value: formData.clientName },
+                    // Generic "I/We" pattern
+                    { pattern: /I\/We,?\s*(_{3,})/, value: formData.clientName },
+
+                    // === CLIENT ADDRESS ===
+                    // Commission Agreement: after (Billing Name) line
+                    { pattern: /\(Billing Name\)[\s\S]{0,5}?(_{3,})[\s\S]{0,20}?\(?Billing Address\)?/, value: formData.clientAddress },
+                    // CEA form: "Address: ___" right after NRIC line
+                    { pattern: /NRIC\s*No\.?\s*\(\d\)\s*:[\s\S]{0,30}?Address\s*:?\s*(_{3,})/, value: formData.clientAddress },
+
+                    // === PROPERTY ADDRESS ===
+                    // Commission Agreement style
+                    { pattern: /Property Address\s*:?\s*(_{3,})/, value: formData.propertyAddress },
+                    // CEA form style: "basis(7)(8):___"
+                    { pattern: /basis[\s\S]{0,15}:\s*(_{3,})/, value: formData.propertyAddress },
+
+                    // === PRICE / AMOUNT ===
+                    { pattern: /\(\$\s*(_{3,})\)/, value: formData.transactionPrice ? priceFormatted : '' },
+                    { pattern: /\(S\$\s*(_{3,})\s*\)/, value: formData.transactionPrice ? priceFormatted : '' },
+                    { pattern: /Singapore Dollars\s*(_{3,})/, value: formData.transactionPrice ? priceInWords : '' },
+                    { pattern: /sale price[\s\S]{0,30}?Singapore Dollars\s*(_{3,})/, value: formData.transactionPrice ? priceInWords : '' },
+                    { pattern: /Monthly Rent\s*:?\s*(_{3,})/, value: formData.transactionPrice ? 'S$' + formData.transactionPrice : '' },
+                    { pattern: /Purchase Price\s*:?\s*(_{3,})/, value: formData.transactionPrice ? 'S$' + formData.transactionPrice : '' },
+                    { pattern: /Option Price\s*:?\s*(_{3,})/, value: formData.transactionPrice ? 'S$' + formData.transactionPrice : '' },
+                    { pattern: /Sale Price\s*:?\s*(_{3,})/, value: formData.transactionPrice ? 'S$' + formData.transactionPrice : '' },
+
+                    // === COMMISSION ===
+                    { pattern: /commission\s+of\s+\*?S\$(_{3,})/, value: formData.commissionRate || '' },
+                    { pattern: /commission\s+of\s+Singapore\s+Dollars\s*(_{3,})/, value: formData.commissionRate || '' },
+                    { pattern: /rate\s+of\s+(_{3,})%/, value: formData.commissionRate || '' },
+                    { pattern: /commission\s*:?\s*(_{3,})/, value: formData.commissionRate || '' },
+
+                    // === NRIC ===
+                    // CEA form style with footnote: "NRIC No.(4): ___"
+                    { pattern: /NRIC\s*No\.?\s*\(\d\)\s*:?\s*(_{3,})/, value: formData.clientNRIC },
+                    // Commission Agreement style
+                    { pattern: /NRIC\s*(?:No\.?)?\s*:?\s*(_{3,})/, value: formData.clientNRIC },
+                    { pattern: /Passport\s*(?:No\.?)?\s*:?\s*(_{3,})/, value: formData.clientNRIC },
+
+                    // === LEASE DATES ===
+                    { pattern: /Commencement\s*(?:Date)?\s*:?\s*(_{3,})/, value: formData.leaseStartDate || '' },
+                    { pattern: /(?:Lease\s+)?Start\s*Date\s*:?\s*(_{3,})/, value: formData.leaseStartDate || '' },
+                    { pattern: /(?:Lease\s+)?End\s*Date\s*:?\s*(_{3,})/, value: formData.leaseEndDate || '' },
+                    { pattern: /Expiry\s*(?:Date)?\s*:?\s*(_{3,})/, value: formData.leaseEndDate || '' },
+                    // CEA form: "expire on ___"
+                    { pattern: /expire\s+on\s+(_{3,})/, value: formData.leaseEndDate || '' },
+
+                    // === SECURITY DEPOSIT ===
+                    { pattern: /Security\s+Deposit\s*:?\s*(_{3,})/, value: formData.securityDeposit ? 'S$' + formData.securityDeposit : '' },
+
+                    // === OTHER CLIENT DETAILS ===
+                    { pattern: /Nationality\s*:?\s*(_{3,})/, value: formData.clientNationality || '' },
+                    { pattern: /Date\s+of\s+Birth\s*:?\s*(_{3,})/, value: formData.clientDOB || '' },
+                    { pattern: /Occupation\s*:?\s*(_{3,})/, value: formData.clientOccupation || '' },
+                    { pattern: /(?:Contact|Tel|Phone|Hp|Mobile)\s*(?:No\.?)?\s*:?\s*(_{3,})/, value: formData.clientContact || '' },
+
+                    // === COUNTERPARTY ===
+                    { pattern: /Counterparty[\s\S]{0,30}?Name\s*:?\s*(_{3,})/, value: formData.counterpartyName || '' },
+
+                    // === CO-BROKE AGENT (paired fields in Cobroke Agreement) ===
+                    // Cobroke agreements have paired columns: SRI agent (left) | Co-broke agent (right)
+                    // Pattern: "Name: ___   Name: ___" — first = SRI, second = cobroke
+                    // SRI agent side (first occurrence, already matched by Salesperson Name rule above)
+                    // Co-broke agent side (second occurrence — match by looking for the pair)
+                    { pattern: /Name\s*:\s*_{3,}\s+Name\s*:\s*(_{3,})/, value: formData.cobrokeAgentName || '' },
+                    { pattern: /CEA No\.\s*:\s*_{3,}\s*CEA No\.\s*:\s*(_{3,})/, value: formData.cobrokeAgentCEA || '' },
+                    { pattern: /Mobile\s*:\s*_{3,}\s*Mobile\s*:\s*(_{3,})/, value: formData.cobrokeAgentMobile || '' },
+                ];
+
+                // Step 4: Apply replacements on the flat text, then map back to XML
+                // We collect all underscore ranges that need replacing
+                const xmlReplacements = []; // { partIndex, startInPart, endInPart, value }
+
+                console.log('[FILL] Flat text length:', flatText.length, 'textParts count:', textParts.length);
+                console.log('[FILL] First 500 chars of flat text:', flatText.substring(0, 500));
+
+                const claimedParts = new Set(); // track which textParts have already been replaced
+                for (const rule of replacements) {
+                    if (!rule.value) continue;
+                    const match = rule.pattern.exec(flatText);
+                    if (!match || !match[1]) continue;
+
+                    // Find where the underscore capture group is in flat text
+                    const underscoreStart = match.index + match[0].indexOf(match[1]);
+                    const underscoreEnd = underscoreStart + match[1].length;
+
+                    // Map back to textParts
+                    const startPartIdx = posMap[underscoreStart];
+                    const endPartIdx = posMap[underscoreEnd - 1];
+
+                    // Skip if any part in this range was already claimed by a previous rule
+                    let overlap = false;
+                    for (let i = startPartIdx; i <= endPartIdx; i++) {
+                        if (claimedParts.has(i)) { overlap = true; break; }
+                    }
+                    if (overlap) {
+                        console.log('[FILL] SKIPPED (overlap):', rule.pattern.toString());
+                        continue;
+                    }
+
+                    console.log('[FILL] MATCHED:', rule.pattern.toString(), '→', rule.value);
+
+                    if (startPartIdx === endPartIdx) {
+                        // Underscores are within a single <w:t> element — simple case
+                        let charsBefore = 0;
+                        for (let i = 0; i < startPartIdx; i++) charsBefore += textParts[i].text.length;
+                        const inPartStart = underscoreStart - charsBefore;
+                        const inPartEnd = underscoreEnd - charsBefore;
+                        xmlReplacements.push({ partIndex: startPartIdx, inPartStart, inPartEnd, value: rule.value });
+                        claimedParts.add(startPartIdx);
+                    } else {
+                        // Underscores span multiple <w:t> elements
+                        // Replace first part's underscores with value, clear rest
+                        let charsBefore = 0;
+                        for (let i = 0; i < startPartIdx; i++) charsBefore += textParts[i].text.length;
+                        const inPartStart = underscoreStart - charsBefore;
+                        xmlReplacements.push({
+                            partIndex: startPartIdx,
+                            inPartStart,
+                            inPartEnd: textParts[startPartIdx].text.length,
+                            value: rule.value
+                        });
+                        // Clear intermediate parts
+                        for (let i = startPartIdx + 1; i <= endPartIdx; i++) {
+                            let cBefore = 0;
+                            for (let j = 0; j < i; j++) cBefore += textParts[j].text.length;
+                            const end = (i === endPartIdx) ? (underscoreEnd - cBefore) : textParts[i].text.length;
+                            xmlReplacements.push({ partIndex: i, inPartStart: 0, inPartEnd: end, value: '' });
+                        }
+                        // Claim all parts in range
+                        for (let i = startPartIdx; i <= endPartIdx; i++) claimedParts.add(i);
+                    }
+
+                    // Extend: clear any trailing underscore-only <w:t> elements beyond the matched range
+                    const lastClaimed = (startPartIdx === endPartIdx) ? startPartIdx : endPartIdx;
+                    for (let i = lastClaimed + 1; i < textParts.length; i++) {
+                        if (/^[_ ]+$/.test(textParts[i].text) && textParts[i].text.includes('_') && !claimedParts.has(i)) {
+                            xmlReplacements.push({ partIndex: i, inPartStart: 0, inPartEnd: textParts[i].text.length, value: '' });
+                            claimedParts.add(i);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                // Step 5: Apply XML replacements (process in reverse order to preserve positions)
+                xmlReplacements.sort((a, b) => {
+                    if (a.partIndex !== b.partIndex) return b.partIndex - a.partIndex;
+                    return b.inPartStart - a.inPartStart;
+                });
+
+                for (const rep of xmlReplacements) {
+                    const part = textParts[rep.partIndex];
+                    const rawPrefix = part.text.substring(0, rep.inPartStart);
+                    const rawSuffix = part.text.substring(rep.inPartEnd);
+                    // Strip trailing underscores from prefix and leading underscores from suffix
+                    const prefix = rawPrefix.replace(/_+\s*$/, '');
+                    const suffix = rawSuffix.replace(/^_+\s*/, '');
+
+                    if (rep.value) {
+                        // Split the <w:r> run so bold+underline only applies to the filled value
+                        const searchStart = Math.max(0, part.index - 500);
+                        const before = xml.substring(searchStart, part.index);
+                        const rOpenIdx = Math.max(before.lastIndexOf('<w:r>'), before.lastIndexOf('<w:r '));
+
+                        let originalRPr = '';
+                        let buRPr = '<w:rPr><w:b/><w:u w:val="single"/></w:rPr>';
+
+                        if (rOpenIdx >= 0) {
+                            const absROpen = searchStart + rOpenIdx;
+                            const rTagEnd = xml.indexOf('>', absROpen) + 1;
+                            const gap = xml.substring(rTagEnd, part.index);
+                            const rPrMatch = gap.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
+                            if (rPrMatch) {
+                                originalRPr = rPrMatch[0];
+                                let rPrContent = rPrMatch[1];
+                                let extra = '';
+                                if (!rPrContent.includes('<w:b/>') && !rPrContent.includes('<w:b ')) extra += '<w:b/>';
+                                if (!rPrContent.includes('<w:u ') && !rPrContent.includes('<w:u/>')) extra += '<w:u w:val="single"/>';
+                                buRPr = '<w:rPr>' + rPrContent + extra + '</w:rPr>';
+                            }
+                        }
+
+                        // Create 3 runs: prefix (closes original) | value (bold+underline) | suffix (no format)
+                        // Prefix closes the original run, suffix uses empty rPr to prevent format bleed
+                        const newTag = `<w:t xml:space="preserve">${prefix}</w:t></w:r>` +
+                                       `<w:r>${buRPr}<w:t xml:space="preserve">${rep.value}</w:t></w:r>` +
+                                       `<w:r><w:rPr></w:rPr><w:t xml:space="preserve">${suffix}</w:t>`;
+                        xml = xml.substring(0, part.index) + newTag + xml.substring(part.index + part.fullMatch.length);
+                    } else {
+                        // Empty replacement — clearing intermediate/trailing underscore parts
+                        const cleanText = (prefix + suffix).replace(/_+/g, '');
+                        const newTag = `<w:t xml:space="preserve">${cleanText}</w:t>`;
+                        xml = xml.substring(0, part.index) + newTag + xml.substring(part.index + part.fullMatch.length);
+                    }
+                }
+
+                console.log('[FILL] Total replacements applied:', xmlReplacements.length);
+
+                // Step 6: Handle special non-underscore blanks
+                // Cobroke Agreement: agency name uses spaces instead of underscores
+                // Pattern in XML: "M/s" followed by a <w:t> with lots of spaces, then "(hereinafter"
+                if (formData.cobrokeAgentAgency) {
+                    // Find <w:t> elements that are just long runs of spaces (agency blank)
+                    const spaceRegex = /<w:t xml:space="preserve">([ ]{20,})<\/w:t>/g;
+                    let spaceMatch;
+                    let replaced = false;
+                    while ((spaceMatch = spaceRegex.exec(xml)) !== null) {
+                        // Check if "M/s" appears within 200 chars before this match
+                        const before = xml.substring(Math.max(0, spaceMatch.index - 200), spaceMatch.index);
+                        if (before.includes('M/s') && !replaced) {
+                            // Split run: close original, new run with bold+underline for value
+                            const srchStart = Math.max(0, spaceMatch.index - 500);
+                            const bfr = xml.substring(srchStart, spaceMatch.index);
+                            const rIdx = Math.max(bfr.lastIndexOf('<w:r>'), bfr.lastIndexOf('<w:r '));
+                            let origRP = '';
+                            let buRP = '<w:rPr><w:b/><w:u w:val="single"/></w:rPr>';
+                            if (rIdx >= 0) {
+                                const absR = srchStart + rIdx;
+                                const rEnd = xml.indexOf('>', absR) + 1;
+                                const gap = xml.substring(rEnd, spaceMatch.index);
+                                const prM = gap.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
+                                if (prM) {
+                                    origRP = prM[0];
+                                    let ex = '';
+                                    if (!prM[1].includes('<w:b')) ex += '<w:b/>';
+                                    if (!prM[1].includes('<w:u ')) ex += '<w:u w:val="single"/>';
+                                    buRP = '<w:rPr>' + prM[1] + ex + '</w:rPr>';
+                                }
+                            }
+                            const newTag = `<w:t xml:space="preserve"></w:t></w:r>` +
+                                           `<w:r>${buRP}<w:t xml:space="preserve">${formData.cobrokeAgentAgency}</w:t></w:r>` +
+                                           `<w:r>${origRP}<w:t xml:space="preserve"></w:t>`;
+                            xml = xml.substring(0, spaceMatch.index) + newTag + xml.substring(spaceMatch.index + spaceMatch[0].length);
+                            replaced = true;
+                            console.log('[FILL] Replaced cobroke agency blank space with:', formData.cobrokeAgentAgency);
+                        }
+                    }
+                }
+
+                zip.file('word/document.xml', xml);
+                return zip;
+            };
+
+            // Helper: trigger a single file download via anchor tag
+            const downloadBlob = (blob, filename) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+            };
+
+            // Main download function — fetches real templates, fills them, downloads each individually
+            const downloadDocuments = async () => {
+                setGenerating(true);
+                setGenStatus('Preparing...');
+                try {
+                    const selectedIds = Object.keys(formData.selectedForms).filter(k => formData.selectedForms[k]);
+
+                    let completed = 0;
+                    for (const formId of selectedIds) {
+                        const formInfo = allForms.find(f => f.id === formId);
+                        if (!formInfo) continue;
+
+                        const templateFilename = templateMap[formId];
+                        if (!templateFilename) {
+                            console.warn(`No template mapped for form: ${formId}`);
+                            continue;
+                        }
+
+                        setGenStatus(`Processing ${formInfo.name}... (${completed + 1}/${selectedIds.length})`);
+
+                        try {
+                            const templateData = await fetchTemplate(templateFilename);
+                            const ext = templateFilename.split('.').pop().toLowerCase();
+                            const safeName = formInfo.name.replace(/[^a-zA-Z0-9() .-]/g, '').trim();
+
+                            if (ext === 'docx') {
+                                // Fill .docx by replacing underscore blanks with values
+                                const filledZip = fillDocxTemplate(templateData);
+                                const filledData = filledZip.generate({ type: 'uint8array', compression: 'DEFLATE' });
+                                const blob = new Blob([filledData], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                                downloadBlob(blob, `${safeName}.docx`);
+                            } else {
+                                // .doc and .pdf — download as-is
+                                const blob = new Blob([templateData], { type: 'application/octet-stream' });
+                                downloadBlob(blob, `${safeName}.${ext}`);
+                            }
+                        } catch (fetchErr) {
+                            console.error(`Failed to fetch template for ${formId}:`, fetchErr);
+                        }
+
+                        completed++;
+                        // Small delay between downloads so browser doesn't block them
+                        if (completed < selectedIds.length) {
+                            await new Promise(r => setTimeout(r, 500));
+                        }
+                    }
+
+                    setGenStatus('');
+                } catch (err) {
+                    console.error('Error generating documents:', err);
+                    alert('Error generating documents: ' + err.message);
+                    setGenStatus('');
+                } finally {
+                    setGenerating(false);
+                }
+            };
+
+            return React.createElement('div', { className: 'min-h-screen bg-white' },
+                React.createElement('div', { className: 'max-w-4xl mx-auto px-4 py-8' },
+                    React.createElement(ProgressBar, { step, transactionType: formData.transactionType }),
+
+                    step === 1 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Tell us about your deal'),
+                        React.createElement(FormSection, { title: '1. Transaction Type' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                ['Sale', 'Purchase', 'Rental', 'RoomRental'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.transactionType === type,
+                                        onClick: () => updateField('transactionType', type)
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' }, type === 'RoomRental' ? 'Room Rental' : type)
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: '2. Property Type' },
+                            React.createElement('div', { className: 'grid grid-cols-3 gap-4' },
+                                ['HDB', 'Private', 'Commercial'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.propertyType === type,
+                                        onClick: () => updateField('propertyType', type)
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' },
+                                            type === 'Private' ? 'Private Residential' : type === 'Commercial' ? 'Commercial & Industrial' : type
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: '3. Your Role' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                (formData.transactionType === 'Rental' || formData.transactionType === 'RoomRental') ?
+                                    [
+                                        React.createElement(CardButton, {
+                                            key: 'landlord',
+                                            selected: formData.role === 'Seller/Landlord',
+                                            onClick: () => updateField('role', 'Seller/Landlord')
+                                        },
+                                            React.createElement('div', { className: 'font-semibold' }, 'Representing Landlord')
+                                        ),
+                                        React.createElement(CardButton, {
+                                            key: 'tenant',
+                                            selected: formData.role === 'Buyer/Tenant',
+                                            onClick: () => updateField('role', 'Buyer/Tenant')
+                                        },
+                                            React.createElement('div', { className: 'font-semibold' }, 'Representing Tenant')
+                                        )
+                                    ]
+                                    :
+                                    [
+                                        React.createElement(CardButton, {
+                                            key: 'seller',
+                                            selected: formData.role === 'Seller/Landlord',
+                                            onClick: () => updateField('role', 'Seller/Landlord')
+                                        },
+                                            React.createElement('div', { className: 'font-semibold' }, 'Representing Seller')
+                                        ),
+                                        React.createElement(CardButton, {
+                                            key: 'buyer',
+                                            selected: formData.role === 'Buyer/Tenant',
+                                            onClick: () => updateField('role', 'Buyer/Tenant')
+                                        },
+                                            React.createElement('div', { className: 'font-semibold' }, 'Representing Buyer')
+                                        )
+                                    ]
+                            )
+                        )
+                    ),
+
+                    step === 2 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Agency Structure'),
+                        React.createElement(FormSection, { title: '4. Agency Type' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                ['Exclusive', 'NonExclusive'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.agencyType === type,
+                                        onClick: () => updateField('agencyType', type)
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' }, type === 'NonExclusive' ? 'Non-Exclusive' : 'Exclusive')
+                                    )
+                                )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: '5. Co-Broke Status' },
+                            React.createElement('div', { className: 'grid grid-cols-3 gap-4' },
+                                ['Solo', 'Cobroke', 'NotApplicable'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.cobroke === type,
+                                        onClick: () => updateField('cobroke', type)
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' }, type === 'NotApplicable' ? 'Not Applicable' : type),
+                                        React.createElement('div', { className: 'text-xs text-gray-600 mt-2' },
+                                            type === 'Solo' && 'You represent both sides',
+                                            type === 'Cobroke' && 'Another agent on other side'
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    ),
+
+                    step === 3 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Required Forms'),
+                        requiredForms.mustSign.length > 0 && React.createElement(FormSection, { title: 'MUST SIGN NOW' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                requiredForms.mustSign.map((form) =>
+                                    React.createElement(CheckboxField, {
+                                        key: form.id,
+                                        label: form.name,
+                                        checked: formData.selectedForms[form.id] || false,
+                                        onChange: (checked) => updateForm(form.id, checked)
+                                    })
+                                )
+                            )
+                        ),
+                        requiredForms.transaction.length > 0 && React.createElement(FormSection, { title: 'TRANSACTION DOCUMENTS' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                requiredForms.transaction.map((form) =>
+                                    React.createElement(CheckboxField, {
+                                        key: form.id,
+                                        label: form.name,
+                                        checked: formData.selectedForms[form.id] || false,
+                                        onChange: (checked) => updateForm(form.id, checked)
+                                    })
+                                )
+                            )
+                        ),
+                        requiredForms.amlkyc.length > 0 && React.createElement(FormSection, { title: 'AML / KYC' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                requiredForms.amlkyc.map((form) =>
+                                    React.createElement(CheckboxField, {
+                                        key: form.id,
+                                        label: form.name,
+                                        checked: formData.selectedForms[form.id] || false,
+                                        onChange: (checked) => updateForm(form.id, checked)
+                                    })
+                                )
+                            )
+                        ),
+                        requiredForms.special.length > 0 && React.createElement(FormSection, { title: 'SPECIAL' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                requiredForms.special.map((form) =>
+                                    React.createElement(CheckboxField, {
+                                        key: form.id,
+                                        label: form.name,
+                                        checked: formData.selectedForms[form.id] || false,
+                                        onChange: (checked) => updateForm(form.id, checked)
+                                    })
+                                )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: 'Transaction Threshold' },
+                            React.createElement(CheckboxField, {
+                                label: 'Is the transaction ≥ S$3,000,000?',
+                                checked: formData.thresholdExceeded,
+                                onChange: (checked) => updateField('thresholdExceeded', checked)
+                            })
+                        )
+                    ),
+
+                    step === 4 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Client & Transaction Details'),
+                        React.createElement(FormSection, { title: 'Agent Details' },
+                            React.createElement(InputField, {
+                                label: 'Salesperson Name',
+                                value: formData.agentName,
+                                onChange: (v) => updateField('agentName', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'CEA Registration No.',
+                                value: formData.ceaRegistration,
+                                onChange: (v) => updateField('ceaRegistration', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Contact Number',
+                                value: formData.agentContact,
+                                onChange: (v) => updateField('agentContact', v),
+                                required: true
+                            })
+                        ),
+                        React.createElement(FormSection, { title: 'Client Details' },
+                            React.createElement(InputField, {
+                                label: 'Full Name (as per NRIC)',
+                                value: formData.clientName,
+                                onChange: (v) => updateField('clientName', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC/Passport No.',
+                                value: formData.clientNRIC,
+                                onChange: (v) => updateField('clientNRIC', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Address',
+                                value: formData.clientAddress,
+                                onChange: (v) => updateField('clientAddress', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Contact Number',
+                                value: formData.clientContact,
+                                onChange: (v) => updateField('clientContact', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.clientNationality,
+                                onChange: (v) => updateField('clientNationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.clientDOB,
+                                onChange: (v) => updateField('clientDOB', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.clientOccupation,
+                                onChange: (v) => updateField('clientOccupation', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'Source of Funds',
+                                value: formData.clientSourceOfFunds,
+                                onChange: (v) => updateField('clientSourceOfFunds', v),
+                                options: [
+                                    { value: 'Employment Income', label: 'Employment Income' },
+                                    { value: 'Savings', label: 'Savings' },
+                                    { value: 'Investment', label: 'Investment' },
+                                    { value: 'Inheritance', label: 'Inheritance' },
+                                    { value: 'Business', label: 'Business' },
+                                    { value: 'Other', label: 'Other' }
+                                ]
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'PEP Status (Politically Exposed Person)',
+                                checked: formData.clientPEP,
+                                onChange: (v) => updateField('clientPEP', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'Acting on behalf of someone else?',
+                                checked: formData.clientActingOnBehalf,
+                                onChange: (v) => updateField('clientActingOnBehalf', v)
+                            })
+                        ),
+                        React.createElement(FormSection, { title: 'Property Details' },
+                            React.createElement(InputField, {
+                                label: 'Property Address',
+                                value: formData.propertyAddress,
+                                onChange: (v) => updateField('propertyAddress', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Floor Area (sqm, optional)',
+                                value: formData.floorArea,
+                                onChange: (v) => updateField('floorArea', v),
+                                type: 'number'
+                            })
+                        ),
+                        React.createElement(FormSection, { title: 'Transaction Details' },
+                            React.createElement(InputField, {
+                                label: formData.transactionType === 'Rental' ? 'Monthly Rent (S$)' : 'Price (S$)',
+                                value: formData.transactionPrice,
+                                onChange: (v) => updateField('transactionPrice', v),
+                                type: 'number',
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Commission Rate / Amount',
+                                value: formData.commissionRate,
+                                onChange: (v) => updateField('commissionRate', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'GST on commission',
+                                checked: formData.commissionGST,
+                                onChange: (v) => updateField('commissionGST', v)
+                            }),
+                            formData.transactionType === 'Rental' && [
+                                React.createElement(InputField, {
+                                    key: 'lease-start',
+                                    label: 'Lease Start Date',
+                                    value: formData.leaseStartDate,
+                                    onChange: (v) => updateField('leaseStartDate', v),
+                                    type: 'date'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'lease-end',
+                                    label: 'Lease End Date',
+                                    value: formData.leaseEndDate,
+                                    onChange: (v) => updateField('leaseEndDate', v),
+                                    type: 'date'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'security',
+                                    label: 'Security Deposit (S$)',
+                                    value: formData.securityDeposit,
+                                    onChange: (v) => updateField('securityDeposit', v),
+                                    type: 'number'
+                                })
+                            ],
+                            formData.agencyType === 'Exclusive' && [
+                                React.createElement(InputField, {
+                                    key: 'excl-start',
+                                    label: 'Exclusive Period Start',
+                                    value: formData.exclusiveStartDate,
+                                    onChange: (v) => updateField('exclusiveStartDate', v),
+                                    type: 'date'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'excl-end',
+                                    label: 'Exclusive Period End',
+                                    value: formData.exclusiveEndDate,
+                                    onChange: (v) => updateField('exclusiveEndDate', v),
+                                    type: 'date'
+                                })
+                            ]
+                        ),
+                        formData.cobroke === 'Solo' && React.createElement(FormSection, { title: 'Counterparty Details' },
+                            React.createElement(InputField, {
+                                label: 'Name',
+                                value: formData.counterpartyName,
+                                onChange: (v) => updateField('counterpartyName', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC/Passport No.',
+                                value: formData.counterpartyNRIC,
+                                onChange: (v) => updateField('counterpartyNRIC', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Address',
+                                value: formData.counterpartyAddress,
+                                onChange: (v) => updateField('counterpartyAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Contact Number',
+                                value: formData.counterpartyContact,
+                                onChange: (v) => updateField('counterpartyContact', v)
+                            })
+                        ),
+                        formData.cobroke === 'Cobroke' && React.createElement(FormSection, { title: 'Co-Broke Agent Details' },
+                            React.createElement(InputField, {
+                                label: 'Agent Name',
+                                value: formData.cobrokeAgentName,
+                                onChange: (v) => updateField('cobrokeAgentName', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'CEA Registration No.',
+                                value: formData.cobrokeAgentCEA,
+                                onChange: (v) => updateField('cobrokeAgentCEA', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Mobile No.',
+                                value: formData.cobrokeAgentMobile,
+                                onChange: (v) => updateField('cobrokeAgentMobile', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Estate Agency Name',
+                                value: formData.cobrokeAgentAgency,
+                                onChange: (v) => updateField('cobrokeAgentAgency', v),
+                                required: true
+                            })
+                        )
+                    ),
+
+                    step === 5 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Review & Generate'),
+                        React.createElement('div', { className: 'bg-purple-50 border border-purple-200 rounded-lg p-6 mb-6' },
+                            React.createElement('h3', { className: 'font-semibold text-purple-900 mb-4' }, 'Transaction Summary'),
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4 text-sm' },
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-gray-600' }, 'Transaction Type'),
+                                    React.createElement('p', { className: 'font-semibold' }, formData.transactionType)
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-gray-600' }, 'Property Type'),
+                                    React.createElement('p', { className: 'font-semibold' }, formData.propertyType)
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-gray-600' }, 'Your Role'),
+                                    React.createElement('p', { className: 'font-semibold' }, formData.role)
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('p', { className: 'text-gray-600' }, 'Agency Type'),
+                                    React.createElement('p', { className: 'font-semibold' }, formData.agencyType)
+                                )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: 'Agent Information' },
+                            React.createElement('div', { className: 'text-sm space-y-2' },
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Name: '), formData.agentName),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'CEA Reg: '), formData.ceaRegistration),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Contact: '), formData.agentContact)
+                            )
+                        ),
+                        React.createElement(FormSection, { title: 'Client Information' },
+                            React.createElement('div', { className: 'text-sm space-y-2' },
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Name: '), formData.clientName),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'NRIC/Passport: '), formData.clientNRIC),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Address: '), formData.clientAddress),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Contact: '), formData.clientContact)
+                            )
+                        ),
+                        formData.cobroke === 'Cobroke' && React.createElement(FormSection, { title: 'Co-Broke Agent' },
+                            React.createElement('div', { className: 'text-sm space-y-2' },
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Name: '), formData.cobrokeAgentName),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'CEA Reg: '), formData.cobrokeAgentCEA),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Mobile: '), formData.cobrokeAgentMobile),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Agency: '), formData.cobrokeAgentAgency)
+                            )
+                        ),
+                        React.createElement(FormSection, { title: 'Property Information' },
+                            React.createElement('div', { className: 'text-sm space-y-2' },
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Address: '), formData.propertyAddress),
+                                React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Amount: '), 'S$' + formData.transactionPrice),
+                                formData.floorArea && React.createElement('p', null, React.createElement('span', { className: 'font-semibold' }, 'Floor Area: '), formData.floorArea + ' sqm')
+                            )
+                        ),
+                        React.createElement(FormSection, { title: 'Forms to be Generated' },
+                            React.createElement('div', { className: 'bg-gray-50 rounded-lg p-4' },
+                                React.createElement('ul', { className: 'text-sm space-y-2' },
+                                    Object.keys(formData.selectedForms)
+                                        .filter(k => formData.selectedForms[k])
+                                        .map((formId) => {
+                                            const form = allForms.find(f => f.id === formId);
+                                            return form ? React.createElement('li', { key: formId, className: 'flex items-center' },
+                                                React.createElement('span', { className: 'text-green-600 mr-2' }, '✓'),
+                                                form.name
+                                            ) : null;
+                                        })
+                                )
+                            )
+                        ),
+                        React.createElement('div', { className: 'mt-8 p-4 bg-green-50 border border-green-200 rounded-lg' },
+                            React.createElement('p', { className: 'text-sm text-green-900' },
+                                React.createElement('strong', null, 'Ready to generate! '),
+                                'Click the button below to download all selected forms using the original SRI templates, pre-filled with the details above.'
+                            )
+                        ),
+                        genStatus && React.createElement('div', { className: 'mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg' },
+                            React.createElement('p', { className: 'text-sm text-purple-800' }, genStatus)
+                        )
+                    ),
+
+                    React.createElement('div', { className: 'flex justify-between mt-12 pt-8 border-t border-gray-200' },
+                        React.createElement('button', {
+                            onClick: handleBack,
+                            disabled: step === 1,
+                            className: `px-6 py-3 rounded-lg font-semibold transition-colors ${step === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`
+                        }, 'Back'),
+                        React.createElement('button', {
+                            onClick: () => {
+                                if (step === 5) {
+                                    downloadDocuments();
+                                } else {
+                                    handleNext();
+                                }
+                            },
+                            disabled: !validateStep() || generating,
+                            className: `px-6 py-3 rounded-lg font-semibold transition-colors ${(!validateStep() || generating) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`,
+                            style: {
+                                backgroundColor: (validateStep() && !generating) ? '#5B2D8E' : '#D1D5DB',
+                                color: 'white'
+                            }
+                        }, step === 5 ? (generating ? 'Generating...' : 'Download All Documents') : 'Next')
+                    ),
+
+                    !validateStep() && React.createElement('div', { className: 'mt-4 p-4 bg-red-50 border border-red-200 rounded-lg' },
+                        React.createElement('p', { className: 'text-sm text-red-800' }, 'Please complete all required fields before proceeding.')
+                    )
+                )
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(SRIPaperworkApp));
+    </script>
+</body>
+</html>
