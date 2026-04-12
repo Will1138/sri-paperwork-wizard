@@ -153,6 +153,12 @@
                     role: null,
                     agencyType: null,
                     cobroke: null,
+                    // CDD Form Selection Fields
+                    clientType: null, // "Individual" or "Entity"
+                    numberOfBeneficialOwners: '1',
+                    clientActingOnBehalf: false,
+                    counterpartyType: null, // "Individual" or "Entity" (only if Solo)
+                    counterpartyActingOnBehalf: false,
                     selectedForms: {},
                     thresholdExceeded: false,
                     agentName: '',
@@ -167,7 +173,6 @@
                     clientOccupation: '',
                     clientSourceOfFunds: '',
                     clientPEP: false,
-                    clientActingOnBehalf: false,
                     propertyAddress: '',
                     floorArea: '',
                     transactionPrice: '',
@@ -199,6 +204,116 @@
                     field: 'selectedForms',
                     value: { ...formData.selectedForms, [formName]: checked }
                 });
+            };
+
+            // =====================================================
+            // INTELLIGENT AML FORM SELECTION (CDD Framework)
+            // Based on Customer Due Diligence Guide
+            // =====================================================
+            const getAMLFormsNeeded = () => {
+                const forms = [];
+
+                // Only generate forms if client type is selected
+                if (!formData.clientType) {
+                    return forms;
+                }
+
+                // ===== SCENARIO 1: Individual Client (Direct) =====
+                if (formData.clientType === 'Individual' && !formData.clientActingOnBehalf) {
+                    forms.push(
+                        { id: 'formA1', name: 'Form A1 (Client - Individual Particulars)' },
+                        { id: 'formB', name: 'Form B (Client - Risk Assessment)' }
+                    );
+                }
+
+                // ===== SCENARIO 2: Individual Acting on Behalf =====
+                else if (formData.clientType === 'Individual' && formData.clientActingOnBehalf) {
+                    forms.push(
+                        { id: 'formA1', name: 'Form A1 (Client & Principal - Individual Particulars)' },
+                        { id: 'formA3', name: 'Form A3 (Acting on Behalf - Authority Details)' },
+                        { id: 'formB', name: 'Form B (Risk Assessment - Client & Principal)' }
+                    );
+                }
+
+                // ===== SCENARIO 3: Entity/Company Client (Direct) =====
+                else if (formData.clientType === 'Entity' && !formData.clientActingOnBehalf) {
+                    forms.push(
+                        { id: 'formA2', name: 'Form A2 (Entity - Company Particulars)' },
+                        { id: 'formB', name: 'Form B (Risk Assessment - Entity)' }
+                    );
+
+                    // Add A4 and A1 for each beneficial owner
+                    const numOwners = parseInt(formData.numberOfBeneficialOwners) || 1;
+                    for (let i = 1; i <= numOwners; i++) {
+                        forms.push(
+                            { id: `formA4_owner${i}`, name: `Form A4 (Beneficial Owner ${i} of ${numOwners})` }
+                        );
+                    }
+                    // A1 forms for beneficial owners
+                    for (let i = 1; i <= numOwners; i++) {
+                        forms.push(
+                            { id: `formA1_owner${i}`, name: `Form A1 (Owner ${i} - Individual Particulars)` }
+                        );
+                    }
+                }
+
+                // ===== SCENARIO 4: Entity Acting on Behalf =====
+                else if (formData.clientType === 'Entity' && formData.clientActingOnBehalf) {
+                    forms.push(
+                        { id: 'formA2', name: 'Form A2 (Agent Entity - Company Particulars)' },
+                        { id: 'formA3', name: 'Form A3 (Acting on Behalf - Authority Details)' },
+                        { id: 'formB', name: 'Form B (Risk Assessment - Agent Entity)' }
+                    );
+
+                    // Add A4 and A1 for each beneficial owner of agent entity
+                    const numOwners = parseInt(formData.numberOfBeneficialOwners) || 1;
+                    for (let i = 1; i <= numOwners; i++) {
+                        forms.push(
+                            { id: `formA4_agent${i}`, name: `Form A4 (Agent's Owner ${i} of ${numOwners})` }
+                        );
+                    }
+                    for (let i = 1; i <= numOwners; i++) {
+                        forms.push(
+                            { id: `formA1_agent${i}`, name: `Form A1 (Agent's Owner ${i} - Individual)` }
+                        );
+                    }
+                }
+
+                // ===== COUNTERPARTY FORMS (Solo transactions only) =====
+                if (formData.cobroke === 'Solo' && formData.counterpartyType) {
+                    // Individual counterparty
+                    if (formData.counterpartyType === 'Individual' && !formData.counterpartyActingOnBehalf) {
+                        forms.push(
+                            { id: 'formU1', name: 'Form U1 (Counterparty - Individual Particulars)' },
+                            { id: 'formU2', name: 'Form U2 (Counterparty - Risk Assessment)' }
+                        );
+                    }
+                    // Individual counterparty acting on behalf
+                    else if (formData.counterpartyType === 'Individual' && formData.counterpartyActingOnBehalf) {
+                        forms.push(
+                            { id: 'formU1', name: 'Form U1 (Counterparty & Principal - Individual Particulars)' },
+                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf)' },
+                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty & Principal)' }
+                        );
+                    }
+                    // Entity counterparty
+                    else if (formData.counterpartyType === 'Entity' && !formData.counterpartyActingOnBehalf) {
+                        forms.push(
+                            { id: 'formU5', name: 'Form U5 (Counterparty - Entity Particulars)' },
+                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty Entity)' }
+                        );
+                    }
+                    // Entity counterparty acting on behalf
+                    else if (formData.counterpartyType === 'Entity' && formData.counterpartyActingOnBehalf) {
+                        forms.push(
+                            { id: 'formU5', name: 'Form U5 (Counterparty - Entity Particulars)' },
+                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf)' },
+                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty Entity)' }
+                        );
+                    }
+                }
+
+                return forms;
             };
 
             const getRequiredForms = () => {
@@ -259,18 +374,8 @@
                     });
                 }
 
-                forms.amlkyc.push(
-                    { id: 'formA1', name: 'Form A1 (Client - Individual)' },
-                    { id: 'formA2', name: 'Form A2 (Client - Entity)' },
-                    { id: 'formB', name: 'Form B (Client)' }
-                );
-
-                if (formData.cobroke === 'Solo') {
-                    forms.amlkyc.push(
-                        { id: 'formU1', name: 'Form U1 (Counterparty - Individual)' },
-                        { id: 'formU5', name: 'Form U5 (Counterparty)' }
-                    );
-                }
+                // Intelligent AML form selection based on CDD framework
+                forms.amlkyc = getAMLFormsNeeded();
 
                 if (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase') {
                     forms.transaction.push({ id: 'otp', name: 'Offer to Purchase (OTP)' });
@@ -306,7 +411,13 @@
                 }
                 if (step === 2) {
                     if (formData.transactionType === 'RoomRental') return true;
-                    return formData.agencyType && formData.cobroke;
+                    const baseValid = formData.agencyType && formData.cobroke && formData.clientType;
+
+                    // If client is acting on behalf, we need that confirmed
+                    // If cobroke is Solo, we need counterparty type selected
+                    const soloValid = formData.cobroke !== 'Solo' || formData.counterpartyType;
+
+                    return baseValid && soloValid;
                 }
                 if (step === 3) {
                     return Object.values(formData.selectedForms).some(v => v === true);
@@ -917,7 +1028,7 @@
                     ),
 
                     step === 2 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Agency Structure'),
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Agency Structure & Client Details'),
                         React.createElement(FormSection, { title: '4. Agency Type' },
                             React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                                 ['Exclusive', 'NonExclusive'].map((type) =>
@@ -946,6 +1057,72 @@
                                         )
                                     )
                                 )
+                            )
+                        ),
+                        React.createElement(FormSection, { title: '6. Your Client Type' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                ['Individual', 'Entity'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.clientType === type,
+                                        onClick: () => {
+                                            updateField('clientType', type);
+                                            if (type === 'Individual') {
+                                                updateField('numberOfBeneficialOwners', '1');
+                                            }
+                                        }
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' }, type),
+                                        React.createElement('div', { className: 'text-xs text-gray-600 mt-2' },
+                                            type === 'Individual' && 'Person (NRIC/Passport)',
+                                            type === 'Entity' && 'Company, Trust, or Partnership'
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        formData.clientType === 'Entity' && React.createElement(FormSection, { title: '7. Number of Beneficial Owners' },
+                            React.createElement('div', { className: 'flex items-center gap-4' },
+                                React.createElement('input', {
+                                    type: 'number',
+                                    min: '1',
+                                    max: '10',
+                                    value: formData.numberOfBeneficialOwners,
+                                    onChange: (e) => updateField('numberOfBeneficialOwners', e.target.value),
+                                    className: 'w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500'
+                                }),
+                                React.createElement('span', { className: 'text-sm text-gray-600' }, 'persons with beneficial ownership interest')
+                            )
+                        ),
+                        React.createElement(FormSection, { title: '8. Is Your Client Acting on Behalf of Someone?' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                React.createElement(CheckboxField, {
+                                    label: 'Yes, my client is an agent/representative (e.g., lawyer, power of attorney holder, trustee)',
+                                    checked: formData.clientActingOnBehalf,
+                                    onChange: (v) => updateField('clientActingOnBehalf', v)
+                                })
+                            )
+                        ),
+                        formData.cobroke === 'Solo' && React.createElement(FormSection, { title: '9. Counterparty Type (Other Side)' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                ['Individual', 'Entity'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.counterpartyType === type,
+                                        onClick: () => updateField('counterpartyType', type)
+                                    },
+                                        React.createElement('div', { className: 'font-semibold' }, type)
+                                    )
+                                )
+                            )
+                        ),
+                        formData.cobroke === 'Solo' && formData.counterpartyType && React.createElement(FormSection, { title: '10. Is Counterparty Acting on Behalf?' },
+                            React.createElement('div', { className: 'space-y-3' },
+                                React.createElement(CheckboxField, {
+                                    label: 'Yes, counterparty is an agent/representative',
+                                    checked: formData.counterpartyActingOnBehalf,
+                                    onChange: (v) => updateField('counterpartyActingOnBehalf', v)
+                                })
                             )
                         )
                     ),
