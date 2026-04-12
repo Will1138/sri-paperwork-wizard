@@ -14,10 +14,13 @@ node_modules/
 dist/
 build/
 
-# Downloads
+# Downloads (but allow template files in Realtor Forms)
 *.docx
 *.xlsx
 downloads/
+!Realtor Forms/
+!Realtor Forms/**/*.docx
+!Realtor Forms/**/*.pdf
 
 # IDE
 .env
