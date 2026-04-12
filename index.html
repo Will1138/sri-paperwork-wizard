@@ -724,112 +724,58 @@
 
             // PDF Filling Function for AML Forms (image-based PDFs with no form fields)
             const fillPdfTemplate = async (arrayBuffer, formId) => {
-                const { PDFDocument, PDFFont, PDFHexString, PDFRawStream, PDFArray, PDFNumber } = window.pdfLib;
+                console.log('[PDF] Starting PDF fill for form:', formId);
+                console.log('[PDF] pdfLib available:', !!window.pdfLib, window.pdfLib ? Object.keys(window.pdfLib).slice(0, 5) : 'N/A');
 
                 try {
+                    // Use the global pdfLib - it should be available from the CDN script
+                    if (!window.pdfLib || !window.pdfLib.PDFDocument) {
+                        console.error('[PDF] pdfLib not loaded! Returning original PDF');
+                        return new Uint8Array(arrayBuffer);
+                    }
+
+                    const PDFDocument = window.pdfLib.PDFDocument;
                     const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    console.log('[PDF] PDF loaded, pages:', pdfDoc.getPageCount());
+
                     const page = pdfDoc.getPage(0);
                     const { width, height } = page.getSize();
+                    console.log('[PDF] Page size:', width, 'x', height);
 
                     // Standard font for text
-                    const fontSize = 10;
+                    const fontSize = 11;
                     const font = await pdfDoc.embedFont(PDFDocument.builtinFonts.Helvetica);
                     const textColor = { r: 0, g: 0, b: 0 };
 
-                    // Field mapping by form ID - coordinates are (x, y) from bottom-left
-                    // These are approximate and may need adjustment based on actual PDF layout
-                    const fieldMappings = {
-                        'formA1': [
-                            { field: 'agentName', x: 150, y: height - 180 },
-                            { field: 'ceaRegistration', x: 380, y: height - 180 },
-                            { field: 'clientName', x: 150, y: height - 280 },
-                            { field: 'clientNRIC', x: 150, y: height - 320 },
-                            { field: 'clientDOB', x: 380, y: height - 320 },
-                            { field: 'clientAddress', x: 150, y: height - 380, isMultiLine: true },
-                            { field: 'clientNationality', x: 150, y: height - 440 },
-                            { field: 'clientOccupation', x: 380, y: height - 440 },
-                            { field: 'propertyAddress', x: 150, y: height - 520, isMultiLine: true },
-                        ],
-                        'formA2': [
-                            { field: 'agentName', x: 150, y: height - 180, page: 0 },
-                            { field: 'clientName', x: 150, y: height - 280, page: 0 },
-                            { field: 'clientNRIC', x: 150, y: height - 340, page: 0 },
-                            { field: 'clientNationality', x: 380, y: height - 340, page: 0 },
-                            { field: 'counterpartyName', x: 150, y: height - 420, page: 0 },
-                            { field: 'counterpartyNRIC', x: 150, y: height - 460, page: 0 },
-                            { field: 'counterpartyNationality', x: 380, y: height - 460, page: 0 },
-                        ],
-                        'formA3': [
-                            { field: 'clientName', x: 150, y: height - 280 },
-                            { field: 'clientNRIC', x: 150, y: height - 340 },
-                            { field: 'clientDOB', x: 380, y: height - 340 },
-                            { field: 'clientNationality', x: 150, y: height - 380 },
-                            { field: 'clientOccupation', x: 380, y: height - 380 },
-                        ],
-                        'formA4': [
-                            { field: 'clientName', x: 150, y: height - 280 },
-                            { field: 'clientNRIC', x: 150, y: height - 340 },
-                            { field: 'clientDOB', x: 380, y: height - 340 },
-                            { field: 'clientAddress', x: 150, y: height - 380 },
-                            { field: 'clientNationality', x: 150, y: height - 420 },
-                            { field: 'clientOccupation', x: 380, y: height - 420 },
-                        ]
-                    };
-
-                    const fields = fieldMappings[formId] || [];
-
-                    // Draw each field
-                    for (const fieldDef of fields) {
-                        const pageNum = fieldDef.page || 0;
-                        if (pageNum >= pdfDoc.getPageCount()) continue;
-
-                        const currentPage = pdfDoc.getPage(pageNum);
-                        const value = formData[fieldDef.field] || '';
-
-                        if (!value) continue;
-
-                        if (fieldDef.isMultiLine) {
-                            // Simple multiline - just split by newlines
-                            const lines = value.split('\n');
-                            let yOffset = 0;
-                            for (const line of lines) {
-                                currentPage.drawText(line, {
-                                    x: fieldDef.x,
-                                    y: fieldDef.y - yOffset,
-                                    size: fontSize,
-                                    font: font,
-                                    color: textColor
-                                });
-                                yOffset += 15;
-                            }
-                        } else {
-                            currentPage.drawText(value, {
-                                x: fieldDef.x,
-                                y: fieldDef.y,
-                                size: fontSize,
-                                font: font,
-                                color: textColor
-                            });
-                        }
-                    }
-
-                    // Add date filled
-                    const today = new Date().toLocaleDateString('en-SG');
-                    const lastPage = pdfDoc.getPage(pdfDoc.getPageCount() - 1);
-                    const lastPageHeight = lastPage.getHeight();
-                    lastPage.drawText(`Date: ${today}`, {
-                        x: 100,
-                        y: 50,
-                        size: fontSize,
+                    // Test: Add visible watermark text to show function is working
+                    const testPage = pdfDoc.getPage(0);
+                    testPage.drawText('[FILLED]', {
+                        x: 50,
+                        y: height - 50,
+                        size: 14,
                         font: font,
-                        color: textColor
+                        color: { r: 1, g: 0, b: 0 }  // Red
                     });
+                    console.log('[PDF] Added test watermark');
+
+                    // Add formData as text to first page (for debugging which fields have data)
+                    let debugText = formId + ' - Agent:' + (formData.agentName || 'EMPTY');
+                    testPage.drawText(debugText, {
+                        x: 50,
+                        y: height - 100,
+                        size: 10,
+                        font: font,
+                        color: { r: 0.5, g: 0.5, b: 0.5 }  // Gray
+                    });
+                    console.log('[PDF] Added debug text:', debugText);
 
                     const pdfBytes = await pdfDoc.save();
+                    console.log('[PDF] PDF saved, size:', pdfBytes.length, 'bytes');
                     return new Uint8Array(pdfBytes);
 
                 } catch (err) {
-                    console.error('PDF filling error:', err);
+                    console.error('[PDF] Error filling PDF:', err);
+                    console.error('[PDF] Stack:', err.stack);
                     // Return original PDF if filling fails
                     return new Uint8Array(arrayBuffer);
                 }
