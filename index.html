@@ -376,7 +376,7 @@
 
             // Fetch a template file from the co-hosted "realtor forms" folder
             const fetchTemplate = async (filename) => {
-                const url = `./realtor forms/${encodeURIComponent(filename)}`;
+                const url = `./Realtor Forms/${encodeURIComponent(filename)}`;
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`Could not load template: ${filename} (${resp.status})`);
                 return await resp.arrayBuffer();
@@ -630,9 +630,10 @@
 
                 for (const rep of xmlReplacements) {
                     const part = textParts[rep.partIndex];
-                    const prefix = part.text.substring(0, rep.inPartStart);
+                    const rawPrefix = part.text.substring(0, rep.inPartStart);
                     const rawSuffix = part.text.substring(rep.inPartEnd);
-                    // Strip trailing underscores from suffix
+                    // Strip trailing underscores from prefix and leading underscores from suffix
+                    const prefix = rawPrefix.replace(/_+\s*$/, '');
                     const suffix = rawSuffix.replace(/^_+\s*/, '');
 
                     if (rep.value) {
@@ -659,11 +660,11 @@
                             }
                         }
 
-                        // Create 3 runs: prefix (original format) | value (bold+underline) | suffix (original format)
-                        // The original <w:r> stays open for prefix, we close it, then create new runs
+                        // Create 3 runs: prefix (closes original) | value (bold+underline) | suffix (no format)
+                        // Prefix closes the original run, suffix uses empty rPr to prevent format bleed
                         const newTag = `<w:t xml:space="preserve">${prefix}</w:t></w:r>` +
                                        `<w:r>${buRPr}<w:t xml:space="preserve">${rep.value}</w:t></w:r>` +
-                                       `<w:r>${originalRPr}<w:t xml:space="preserve">${suffix}</w:t>`;
+                                       `<w:r><w:rPr></w:rPr><w:t xml:space="preserve">${suffix}</w:t>`;
                         xml = xml.substring(0, part.index) + newTag + xml.substring(part.index + part.fullMatch.length);
                     } else {
                         // Empty replacement — clearing intermediate/trailing underscore parts
