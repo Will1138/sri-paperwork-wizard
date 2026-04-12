@@ -10,7 +10,44 @@
     <script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- pdf-lib with fallback CDN loading -->
+    <script>
+        window.pdfLibLoadError = null;
+        function loadPdfLib() {
+            const cdns = [
+                'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+                'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
+                'https://esm.sh/pdf-lib@1.17.1'
+            ];
+            let currentCdnIndex = 0;
+
+            function tryNextCdn() {
+                if (currentCdnIndex >= cdns.length) {
+                    window.pdfLibLoadError = 'All CDNs failed to load pdf-lib';
+                    console.error('[PDF-LIB] Failed to load from all CDNs');
+                    return;
+                }
+
+                const cdn = cdns[currentCdnIndex];
+                console.log('[PDF-LIB] Trying CDN:', cdn);
+
+                const script = document.createElement('script');
+                script.src = cdn;
+                script.onload = function() {
+                    console.log('[PDF-LIB] Successfully loaded from:', cdn);
+                };
+                script.onerror = function() {
+                    console.warn('[PDF-LIB] Failed to load from:', cdn);
+                    currentCdnIndex++;
+                    tryNextCdn();
+                };
+                document.head.appendChild(script);
+            }
+
+            tryNextCdn();
+        }
+        loadPdfLib();
+    </script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
