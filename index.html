@@ -10,6 +10,7 @@
     <script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -721,6 +722,119 @@
                 return zip;
             };
 
+            // PDF Filling Function for AML Forms (image-based PDFs with no form fields)
+            const fillPdfTemplate = async (arrayBuffer, formId) => {
+                const { PDFDocument, PDFFont, PDFHexString, PDFRawStream, PDFArray, PDFNumber } = window.pdfLib;
+
+                try {
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const page = pdfDoc.getPage(0);
+                    const { width, height } = page.getSize();
+
+                    // Standard font for text
+                    const fontSize = 10;
+                    const font = await pdfDoc.embedFont(PDFDocument.builtinFonts.Helvetica);
+                    const textColor = { r: 0, g: 0, b: 0 };
+
+                    // Field mapping by form ID - coordinates are (x, y) from bottom-left
+                    // These are approximate and may need adjustment based on actual PDF layout
+                    const fieldMappings = {
+                        'formA1': [
+                            { field: 'agentName', x: 150, y: height - 180 },
+                            { field: 'ceaRegistration', x: 380, y: height - 180 },
+                            { field: 'clientName', x: 150, y: height - 280 },
+                            { field: 'clientNRIC', x: 150, y: height - 320 },
+                            { field: 'clientDOB', x: 380, y: height - 320 },
+                            { field: 'clientAddress', x: 150, y: height - 380, isMultiLine: true },
+                            { field: 'clientNationality', x: 150, y: height - 440 },
+                            { field: 'clientOccupation', x: 380, y: height - 440 },
+                            { field: 'propertyAddress', x: 150, y: height - 520, isMultiLine: true },
+                        ],
+                        'formA2': [
+                            { field: 'agentName', x: 150, y: height - 180, page: 0 },
+                            { field: 'clientName', x: 150, y: height - 280, page: 0 },
+                            { field: 'clientNRIC', x: 150, y: height - 340, page: 0 },
+                            { field: 'clientNationality', x: 380, y: height - 340, page: 0 },
+                            { field: 'counterpartyName', x: 150, y: height - 420, page: 0 },
+                            { field: 'counterpartyNRIC', x: 150, y: height - 460, page: 0 },
+                            { field: 'counterpartyNationality', x: 380, y: height - 460, page: 0 },
+                        ],
+                        'formA3': [
+                            { field: 'clientName', x: 150, y: height - 280 },
+                            { field: 'clientNRIC', x: 150, y: height - 340 },
+                            { field: 'clientDOB', x: 380, y: height - 340 },
+                            { field: 'clientNationality', x: 150, y: height - 380 },
+                            { field: 'clientOccupation', x: 380, y: height - 380 },
+                        ],
+                        'formA4': [
+                            { field: 'clientName', x: 150, y: height - 280 },
+                            { field: 'clientNRIC', x: 150, y: height - 340 },
+                            { field: 'clientDOB', x: 380, y: height - 340 },
+                            { field: 'clientAddress', x: 150, y: height - 380 },
+                            { field: 'clientNationality', x: 150, y: height - 420 },
+                            { field: 'clientOccupation', x: 380, y: height - 420 },
+                        ]
+                    };
+
+                    const fields = fieldMappings[formId] || [];
+
+                    // Draw each field
+                    for (const fieldDef of fields) {
+                        const pageNum = fieldDef.page || 0;
+                        if (pageNum >= pdfDoc.getPageCount()) continue;
+
+                        const currentPage = pdfDoc.getPage(pageNum);
+                        const value = formData[fieldDef.field] || '';
+
+                        if (!value) continue;
+
+                        if (fieldDef.isMultiLine) {
+                            // Simple multiline - just split by newlines
+                            const lines = value.split('\n');
+                            let yOffset = 0;
+                            for (const line of lines) {
+                                currentPage.drawText(line, {
+                                    x: fieldDef.x,
+                                    y: fieldDef.y - yOffset,
+                                    size: fontSize,
+                                    font: font,
+                                    color: textColor
+                                });
+                                yOffset += 15;
+                            }
+                        } else {
+                            currentPage.drawText(value, {
+                                x: fieldDef.x,
+                                y: fieldDef.y,
+                                size: fontSize,
+                                font: font,
+                                color: textColor
+                            });
+                        }
+                    }
+
+                    // Add date filled
+                    const today = new Date().toLocaleDateString('en-SG');
+                    const lastPage = pdfDoc.getPage(pdfDoc.getPageCount() - 1);
+                    const lastPageHeight = lastPage.getHeight();
+                    lastPage.drawText(`Date: ${today}`, {
+                        x: 100,
+                        y: 50,
+                        size: fontSize,
+                        font: font,
+                        color: textColor
+                    });
+
+                    const pdfBytes = await pdfDoc.save();
+                    return new Uint8Array(pdfBytes);
+
+                } catch (err) {
+                    console.error('PDF filling error:', err);
+                    // Return original PDF if filling fails
+                    return new Uint8Array(arrayBuffer);
+                }
+            };
+
             // Helper: trigger a single file download via anchor tag
             const downloadBlob = (blob, filename) => {
                 const url = URL.createObjectURL(blob);
@@ -764,8 +878,13 @@
                                 const filledData = filledZip.generate({ type: 'uint8array', compression: 'DEFLATE' });
                                 const blob = new Blob([filledData], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
                                 downloadBlob(blob, `${safeName}.docx`);
+                            } else if (ext === 'pdf') {
+                                // Fill .pdf by overlaying text at field positions
+                                const filledData = await fillPdfTemplate(templateData, formId);
+                                const blob = new Blob([filledData], { type: 'application/pdf' });
+                                downloadBlob(blob, `${safeName}.pdf`);
                             } else {
-                                // .doc and .pdf — download as-is
+                                // .doc and other formats — download as-is
                                 const blob = new Blob([templateData], { type: 'application/octet-stream' });
                                 downloadBlob(blob, `${safeName}.${ext}`);
                             }
