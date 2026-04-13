@@ -689,10 +689,24 @@
                     // Cobroke agreements have paired columns: SRI agent (left) | Co-broke agent (right)
                     // Pattern: "Name: ___   Name: ___" — first = SRI, second = cobroke
                     // SRI agent side (first occurrence, already matched by Salesperson Name rule above)
-                    // Co-broke agent side (second occurrence — match by looking for the pair)
+                    // Co-broke agent side (second occurrence — match by looking by the pair)
                     { pattern: /Name\s*:\s*_{3,}\s+Name\s*:\s*(_{3,})/, value: formData.cobrokeAgentName || '' },
                     { pattern: /CEA No\.\s*:\s*_{3,}\s*CEA No\.\s*:\s*(_{3,})/, value: formData.cobrokeAgentCEA || '' },
                     { pattern: /Mobile\s*:\s*_{3,}\s*Mobile\s*:\s*(_{3,})/, value: formData.cobrokeAgentMobile || '' },
+
+                    // === AML/KYC FORMS (Form A1-A4, B, C, D, U1-U5) - Generic field patterns ===
+                    // These forms have simple "Field: ___________" format without role prefixes
+                    // Order matters: more specific patterns first, then generic ones
+                    { pattern: /^Name:\s*(_{3,})/m, value: formData.clientName },
+                    { pattern: /^Address:\s*(_{3,})/m, value: formData.clientAddress },
+                    { pattern: /^Date:\s*(_{3,})/m, value: today },
+                    { pattern: /^NRIC No\.?:\s*(_{3,})/m, value: formData.clientNRIC },
+                    { pattern: /^Passport No\.?:\s*(_{3,})/m, value: formData.clientNRIC },
+                    { pattern: /^Email:\s*(_{3,})/m, value: formData.clientEmail || '' },
+                    { pattern: /^Contact No\.?:\s*(_{3,})/m, value: formData.clientContact || '' },
+                    { pattern: /^Phone:\s*(_{3,})/m, value: formData.clientContact || '' },
+                    { pattern: /^Occupation:\s*(_{3,})/m, value: formData.clientOccupation || '' },
+                    { pattern: /^Nationality:\s*(_{3,})/m, value: formData.clientNationality || '' },
                 ];
 
                 // Step 4: Apply replacements on the flat text, then map back to XML
