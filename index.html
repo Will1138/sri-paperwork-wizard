@@ -696,17 +696,24 @@
 
                     // === AML/KYC FORMS (Form A1-A4, B, C, D, U1-U5) - Generic field patterns ===
                     // These forms have simple "Field: ___________" format without role prefixes
-                    // Order matters: more specific patterns first, then generic ones
-                    { pattern: /^Name:\s*(_{3,})/m, value: formData.clientName },
-                    { pattern: /^Address:\s*(_{3,})/m, value: formData.clientAddress },
-                    { pattern: /^Date:\s*(_{3,})/m, value: today },
-                    { pattern: /^NRIC No\.?:\s*(_{3,})/m, value: formData.clientNRIC },
-                    { pattern: /^Passport No\.?:\s*(_{3,})/m, value: formData.clientNRIC },
-                    { pattern: /^Email:\s*(_{3,})/m, value: formData.clientEmail || '' },
-                    { pattern: /^Contact No\.?:\s*(_{3,})/m, value: formData.clientContact || '' },
-                    { pattern: /^Phone:\s*(_{3,})/m, value: formData.clientContact || '' },
-                    { pattern: /^Occupation:\s*(_{3,})/m, value: formData.clientOccupation || '' },
-                    { pattern: /^Nationality:\s*(_{3,})/m, value: formData.clientNationality || '' },
+                    // FIXED: Removed ^ anchor (which required newlines that don't exist in concatenated text)
+                    // Order matters: more specific patterns first (Full Name before Name, Client Name before Name)
+                    { pattern: /Full Name:\s*(_{3,})/, value: formData.clientName },
+                    { pattern: /Client Name:\s*(_{3,})/, value: formData.clientName },
+                    { pattern: /Entity Name:\s*(_{3,})/, value: formData.entityName || formData.clientName },
+                    { pattern: /Estate Agent Name:\s*(_{3,})/, value: formData.agentName },
+                    { pattern: /RES Name:\s*(_{3,})/, value: formData.agentName },
+                    { pattern: /Company:\s*(_{3,})/, value: formData.entityName || formData.clientName },
+                    { pattern: /Name:\s*(_{3,})/, value: formData.clientName },
+                    { pattern: /Address:\s*(_{3,})/, value: formData.clientAddress },
+                    { pattern: /Date:\s*(_{3,})/, value: today },
+                    { pattern: /NRIC No\.?:\s*(_{3,})/, value: formData.clientNRIC },
+                    { pattern: /Passport No\.?:\s*(_{3,})/, value: formData.clientNRIC },
+                    { pattern: /Email:\s*(_{3,})/, value: formData.clientEmail || '' },
+                    { pattern: /Contact No\.?:\s*(_{3,})/, value: formData.clientContact || '' },
+                    { pattern: /Phone:\s*(_{3,})/, value: formData.clientContact || '' },
+                    { pattern: /Occupation:\s*(_{3,})/, value: formData.clientOccupation || '' },
+                    { pattern: /Nationality:\s*(_{3,})/, value: formData.clientNationality || '' },
                 ];
 
                 // Step 4: Apply replacements on the flat text, then map back to XML
