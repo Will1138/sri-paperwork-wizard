@@ -48,6 +48,9 @@
         }
         loadPdfLib();
     </script>
+
+    <!-- AML PDF coordinate maps + field builder -->
+    <script src="aml-pdf-coords.js"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -115,8 +118,16 @@
             );
 
         const ProgressBar = ({ step, transactionType }) => {
-            const totalSteps = transactionType === 'RoomRental' ? 4 : 5;
-            const currentStep = transactionType === 'RoomRental' && step > 2 ? step - 1 : step;
+            // Non-RoomRental: 6 steps (Deal -> Structure -> Forms -> Details -> AML -> Review)
+            // RoomRental: 4 steps (Deal -> Forms -> Details -> Review), skipping Structure(2) and AML(5)
+            const totalSteps = transactionType === 'RoomRental' ? 4 : 6;
+            let currentStep = step;
+            if (transactionType === 'RoomRental') {
+                // step sequence for RR is 1, 3, 4, 6 -> display as 1, 2, 3, 4
+                if (step === 3) currentStep = 2;
+                else if (step === 4) currentStep = 3;
+                else if (step === 6) currentStep = 4;
+            }
             const progress = (currentStep / totalSteps) * 100;
 
             return React.createElement('div', { className: 'mb-8' },
@@ -191,6 +202,64 @@
                     cobrokeAgentCEA: '',
                     cobrokeAgentMobile: '',
                     cobrokeAgentAgency: '',
+
+                    // --- AML / KYC details (used for PDF filling of Forms A1, A2, A3, U1) ---
+                    // Agreement date shown on AML forms
+                    agreementDate: '',
+
+                    // Property category for AML form checkbox row (HDB / Condo / Landed / Others).
+                    // We ASK this explicitly rather than guessing from Step 1's coarse type.
+                    propertyCategory: null,
+
+                    // Individual client extras (A1)
+                    clientIdType: 'NRIC',               // NRIC | Passport | WorkPermit | Others
+
+                    // Entity client (A2) — only used when clientType === 'Entity'
+                    entityName: '',
+                    entityUen: '',
+                    entityDateOfIncorp: '',
+                    entityCountry: 'Singapore',
+                    entityAddress: '',
+                    entityPhone: '',
+                    entityEmail: '',
+                    entityMainBusiness: '',
+                    entityType: 'Company',              // Company | LimitedPartnership | LLP | Corporation | Trust
+                    entityAuthorised: true,
+                    entitySeniorMgmtIsBO: false,
+                    entityP1Designation: '',
+                    entityP1Name: '',
+                    entityP1Nric: '',
+                    entityP1Nationality: '',
+                    entityP1IdType: 'NRIC',
+
+                    // Beneficial Owner 1 (A2 page 2 / A4)
+                    bo1Name: '',
+                    bo1Nric: '',
+                    bo1Dob: '',
+                    bo1Address: '',
+                    bo1Nationality: '',
+                    bo1Occupation: '',
+                    bo1IdType: 'NRIC',
+
+                    // Principal on whose behalf client is acting (A3)
+                    principalName: '',
+                    principalNric: '',
+                    principalDob: '',
+                    principalAddress: '',
+                    principalNationality: '',
+                    principalOccupation: '',
+                    principalIdType: 'NRIC',
+                    principalClientAuthorised: true,
+
+                    // Counterparty AML extras (U1)
+                    counterpartyDob: '',
+                    counterpartyNationality: '',
+                    counterpartyOccupation: '',
+                    counterpartyIdType: 'NRIC',
+
+                    // Women's Charter Checklist — fill all 6 check rows with "YES"
+                    // only when William explicitly confirms. Never auto-assume.
+                    wcAllChecksDone: false,
                 }
             );
 
@@ -434,6 +503,28 @@
                         formData.transactionPrice
                     );
                 }
+                if (step === 5) {
+                    // AML details validation — only require core fields for the chosen scenario
+                    if (formData.transactionType === 'RoomRental') return true;
+
+                    // Property category MUST be explicitly picked — don't let it default
+                    if (!formData.propertyCategory) return false;
+
+                    // Client NRIC/passport + DOB are the bare minimum for A1/A2
+                    if (formData.clientType === 'Individual') {
+                        if (!formData.clientDOB || !formData.clientNationality || !formData.clientOccupation) return false;
+                    }
+                    if (formData.clientType === 'Entity') {
+                        if (!formData.entityName || !formData.entityUen || !formData.entityAddress) return false;
+                    }
+                    if (formData.clientActingOnBehalf) {
+                        if (!formData.principalName || !formData.principalNric) return false;
+                    }
+                    if (formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual') {
+                        if (!formData.counterpartyName || !formData.counterpartyNRIC) return false;
+                    }
+                    return true;
+                }
                 return true;
             };
 
@@ -441,6 +532,9 @@
                 if (validateStep()) {
                     if (formData.transactionType === 'RoomRental' && step === 1) {
                         setStep(3);
+                    } else if (formData.transactionType === 'RoomRental' && step === 4) {
+                        // Skip the new AML details step for Room Rental
+                        setStep(6);
                     } else {
                         setStep(step + 1);
                     }
@@ -450,6 +544,8 @@
             const handleBack = () => {
                 if (formData.transactionType === 'RoomRental' && step === 3) {
                     setStep(1);
+                } else if (formData.transactionType === 'RoomRental' && step === 6) {
+                    setStep(4);
                 } else {
                     setStep(step - 1);
                 }
@@ -492,10 +588,10 @@
                 'loi_landlord': 'PTE RESIDENTIAL Letter of Intent (Representing Landlord).docx',
                 'loi_tenant': 'PTE RESIDENTIAL Letter of Intent (Representing Tenant).docx',
                 'letterOfOffer': 'PTE RESIDENTIAL Letter of Offer (Representing Landlord)-2.docx',
-                'tenancyAgreement': 'PTE RESIDENTIAL Tenancy Agreement.doc',
+                'tenancyAgreement': 'PTE RESIDENTIAL Tenancy Agreement.docx',
                 'tenancyAgreement_hdb': 'Tenancy Agreement (HDB).docx',
-                'tenancyAgreement_ci': 'Tenancy Agreement (Industrial & Commercial).doc',
-                'tenancyAgreement_ci_fror': 'Tenancy Agreement (Industrial & Commercial - First Right of Refusal).doc',
+                'tenancyAgreement_ci': 'Tenancy Agreement (Industrial & Commercial).docx',
+                'tenancyAgreement_ci_fror': 'Tenancy Agreement (Industrial & Commercial - First Right of Refusal).docx',
                 'otp_hdb': 'Option to Purchase (Commercial) - HDB.docx',
                 'otp_ci': 'INDUSTRIAL & COMMERCIAL Option to Purchase.docx',
                 'otp_ci_jtc': 'INDUSTRIAL & COMMERCIAL Option to Purchase (JTC).docx',
@@ -503,14 +599,14 @@
                 'loi_ci': 'INDUSTRIAL & COMMERCIAL Letter of Intent.doc',
                 'roomRental': 'Room Rental Agreement.doc',
                 // AML/KYC - Word templates with dynamic form filling
-                'formA1': 'Form A1.docx',
-                'formA2': 'Form A2.docx',
-                'formA3': 'Form A3.docx',
+                'formA1': 'Form A1.pdf',
+                'formA2': 'Form A2.pdf',
+                'formA3': 'Form A3.pdf',
                 'formA4': 'Form A4.docx',
                 'formB': 'Form B.docx',
                 'formC': 'Form C.docx',
                 'formD': 'Form D.docx',
-                'formU1': 'Form U1.docx',
+                'formU1': 'Form U1.pdf',
                 'formU2': 'Form U2.docx',
                 'formU3': 'Form U3.docx',
                 'formU4': 'Form U4.docx',
@@ -576,6 +672,32 @@
                 const today = new Date().toLocaleDateString('en-SG');
                 const priceInWords = numberToWords(formData.transactionPrice);
                 const priceFormatted = formatPrice(formData.transactionPrice);
+
+                // Commission handling.
+                //   - If user typed a percentage (has "%", or plain number ≤ 100), treat it as a rate
+                //     and auto-calculate the dollar amount from the transaction/rental price.
+                //   - If user typed a big number (≥ 1000), treat it as the dollar amount directly.
+                // Then every downstream pattern fills:
+                //   "Singapore Dollars _______"  → AMOUNT IN WORDS + "Only"
+                //   "(S$_______)"                → AMOUNT AS NUMBER with commas
+                //   "rate of _______%"           → the rate number (e.g. "2")
+                const commRaw     = String(formData.commissionRate || '').trim();
+                const hasPercent  = /%/.test(commRaw);
+                const commNum     = parseFloat(commRaw.replace(/[,%]/g, '').trim()) || 0;
+                const priceNum    = parseFloat(String(formData.transactionPrice || '').replace(/,/g, '').trim()) || 0;
+                // Rate detection: has explicit "%" OR is a small number (≤ 100)
+                const isRate      = hasPercent || (commNum > 0 && commNum <= 100);
+                let commissionAmount = 0;
+                if (isRate && priceNum > 0) {
+                    // 2% of $1,000,000 = $20,000
+                    commissionAmount = Math.round((priceNum * commNum) / 100);
+                } else if (!isRate) {
+                    commissionAmount = commNum;
+                }
+                const commissionInWords    = commissionAmount > 0 ? (numberToWords(commissionAmount) + ' Only') : '';
+                const commissionFormatted  = commissionAmount > 0 ? formatPrice(commissionAmount) : '';
+                const commissionRateText   = isRate ? String(commNum) : '';
+
                 const roleLabel = formData.role === 'Seller/Landlord'
                     ? (formData.transactionType === 'Rental' ? 'Landlord' : 'Seller')
                     : (formData.transactionType === 'Rental' ? 'Tenant' : 'Buyer');
@@ -653,10 +775,16 @@
                     { pattern: /Sale Price\s*:?\s*(_{3,})/, value: formData.transactionPrice ? 'S$' + formData.transactionPrice : '' },
 
                     // === COMMISSION ===
-                    { pattern: /commission\s+of\s+\*?S\$(_{3,})/, value: formData.commissionRate || '' },
-                    { pattern: /commission\s+of\s+Singapore\s+Dollars\s*(_{3,})/, value: formData.commissionRate || '' },
-                    { pattern: /rate\s+of\s+(_{3,})%/, value: formData.commissionRate || '' },
-                    { pattern: /commission\s*:?\s*(_{3,})/, value: formData.commissionRate || '' },
+                    // "commission of Singapore Dollars _______" → AMOUNT IN WORDS (e.g. "Twenty Thousand Only")
+                    { pattern: /commission\s+of\s+Singapore\s+Dollars\s*(_{3,})/, value: commissionInWords },
+                    // "(S$_______)" bracket that follows the words — the NUMBER
+                    { pattern: /\(\s*S\$\s*(_{3,})\s*\)/, value: commissionFormatted },
+                    // "commission of S$______" when the template uses $ directly
+                    { pattern: /commission\s+of\s+\*?S\$\s*(_{3,})/, value: commissionFormatted },
+                    // Percentage rate ("rate of ___%") — just the rate number (e.g. "2")
+                    { pattern: /rate\s+of\s+(_{3,})%/, value: commissionRateText || formData.commissionRate || '' },
+                    // Generic fallback ("commission: ___") — prefer dollar amount
+                    { pattern: /commission\s*:?\s*(_{3,})/, value: commissionFormatted || commissionRateText || formData.commissionRate || '' },
 
                     // === NRIC ===
                     // CEA form style with footnote: "NRIC No.(4): ___"
@@ -807,13 +935,17 @@
                     const suffix = rawSuffix.replace(/^_+\s*/, '');
 
                     if (rep.value) {
-                        // Split the <w:r> run so bold+underline only applies to the filled value
+                        // Split the <w:r> run so formatting (ALL CAPS + size 10 + bold + underline)
+                        // is applied ONLY to the filled value, not surrounding text.
+                        // William's rule: every value dropped into a .docx must be:
+                        //   ALL CAPS + Font size 10 + Bold + Underlined
                         const searchStart = Math.max(0, part.index - 500);
                         const before = xml.substring(searchStart, part.index);
                         const rOpenIdx = Math.max(before.lastIndexOf('<w:r>'), before.lastIndexOf('<w:r '));
 
                         let originalRPr = '';
-                        let buRPr = '<w:rPr><w:b/><w:u w:val="single"/></w:rPr>';
+                        // Size is half-points in OOXML: 20 = 10pt
+                        let buRPr = '<w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
 
                         if (rOpenIdx >= 0) {
                             const absROpen = searchStart + rOpenIdx;
@@ -822,18 +954,25 @@
                             const rPrMatch = gap.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
                             if (rPrMatch) {
                                 originalRPr = rPrMatch[0];
-                                let rPrContent = rPrMatch[1];
-                                let extra = '';
-                                if (!rPrContent.includes('<w:b/>') && !rPrContent.includes('<w:b ')) extra += '<w:b/>';
-                                if (!rPrContent.includes('<w:u ') && !rPrContent.includes('<w:u/>')) extra += '<w:u w:val="single"/>';
-                                buRPr = '<w:rPr>' + rPrContent + extra + '</w:rPr>';
+                                // Start fresh rather than inherit original (which may have its own size).
+                                // Always force bold + underline + size 10.
+                                let rPrContent = rPrMatch[1]
+                                    .replace(/<w:sz[^/>]*\/>/g, '')
+                                    .replace(/<w:szCs[^/>]*\/>/g, '')
+                                    .replace(/<w:b\s*\/>/g, '')
+                                    .replace(/<w:u[^/>]*\/>/g, '');
+                                buRPr = '<w:rPr>' + rPrContent +
+                                        '<w:b/><w:u w:val="single"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
+                                        '</w:rPr>';
                             }
                         }
 
-                        // Create 3 runs: prefix (closes original) | value (bold+underline) | suffix (no format)
-                        // Prefix closes the original run, suffix uses empty rPr to prevent format bleed
+                        // Force ALL CAPS on the inserted value
+                        const valueUpper = String(rep.value).toUpperCase();
+
+                        // Create 3 runs: prefix (closes original) | value (formatted) | suffix (plain)
                         const newTag = `<w:t xml:space="preserve">${prefix}</w:t></w:r>` +
-                                       `<w:r>${buRPr}<w:t xml:space="preserve">${rep.value}</w:t></w:r>` +
+                                       `<w:r>${buRPr}<w:t xml:space="preserve">${valueUpper}</w:t></w:r>` +
                                        `<w:r><w:rPr></w:rPr><w:t xml:space="preserve">${suffix}</w:t>`;
                         xml = xml.substring(0, part.index) + newTag + xml.substring(part.index + part.fullMatch.length);
                     } else {
@@ -863,7 +1002,7 @@
                             const bfr = xml.substring(srchStart, spaceMatch.index);
                             const rIdx = Math.max(bfr.lastIndexOf('<w:r>'), bfr.lastIndexOf('<w:r '));
                             let origRP = '';
-                            let buRP = '<w:rPr><w:b/><w:u w:val="single"/></w:rPr>';
+                            let buRP = '<w:rPr><w:b/><w:u w:val="single"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
                             if (rIdx >= 0) {
                                 const absR = srchStart + rIdx;
                                 const rEnd = xml.indexOf('>', absR) + 1;
@@ -871,14 +1010,19 @@
                                 const prM = gap.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
                                 if (prM) {
                                     origRP = prM[0];
-                                    let ex = '';
-                                    if (!prM[1].includes('<w:b')) ex += '<w:b/>';
-                                    if (!prM[1].includes('<w:u ')) ex += '<w:u w:val="single"/>';
-                                    buRP = '<w:rPr>' + prM[1] + ex + '</w:rPr>';
+                                    let rpClean = prM[1]
+                                        .replace(/<w:sz[^/>]*\/>/g, '')
+                                        .replace(/<w:szCs[^/>]*\/>/g, '')
+                                        .replace(/<w:b\s*\/>/g, '')
+                                        .replace(/<w:u[^/>]*\/>/g, '');
+                                    buRP = '<w:rPr>' + rpClean +
+                                           '<w:b/><w:u w:val="single"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
+                                           '</w:rPr>';
                                 }
                             }
+                            const agencyUpper = String(formData.cobrokeAgentAgency || '').toUpperCase();
                             const newTag = `<w:t xml:space="preserve"></w:t></w:r>` +
-                                           `<w:r>${buRP}<w:t xml:space="preserve">${formData.cobrokeAgentAgency}</w:t></w:r>` +
+                                           `<w:r>${buRP}<w:t xml:space="preserve">${agencyUpper}</w:t></w:r>` +
                                            `<w:r>${origRP}<w:t xml:space="preserve"></w:t>`;
                             xml = xml.substring(0, spaceMatch.index) + newTag + xml.substring(spaceMatch.index + spaceMatch[0].length);
                             replaced = true;
@@ -891,13 +1035,120 @@
                 return zip;
             };
 
-            // PDF Filling Function for AML Forms
-            // Note: These are pre-filled example PDFs with sample data (William Ng, John Tan, etc.)
-            // In production, these would be filled dynamically on the server with actual transaction data
+            // PDF Filling Function for AML Forms — PURE OVERLAY
+            // We IGNORE the PDF's internal form field names (they're unreliable —
+            // e.g. a field named "Nationality Occupation" sits next to the
+            // "Occupation:" label). Instead we:
+            //   1) Strip all interactive form field annotations so nothing
+            //      floats on top of what we draw.
+            //   2) Draw text and X marks at the exact page coordinates defined
+            //      in aml-pdf-coords.js (AML_FORM_COORDS).
+            //
+            // This mirrors the approach used by the realtor-paperwork skill
+            // with reportlab + pypdf.
             const fillPdfTemplate = async (arrayBuffer, formId) => {
-                console.log('[PDF] Serving pre-filled example PDF for:', formId);
-                // Pre-filled PDFs already contain sample data, so just return as-is
-                return new Uint8Array(arrayBuffer);
+                try {
+                    if (!window.PDFLib) {
+                        console.warn('[PDF] pdf-lib not loaded, returning template as-is');
+                        return new Uint8Array(arrayBuffer);
+                    }
+
+                    // Strip suffixes like "_owner1" to get the base form id
+                    const baseFormId = (formId || '').replace(/_.*$/, '');
+                    const coords = (window.AML_FORM_COORDS || {})[baseFormId];
+
+                    if (!coords) {
+                        console.warn('[PDF] No coordinates defined for', formId, '— returning template as-is');
+                        return new Uint8Array(arrayBuffer);
+                    }
+
+                    console.log('[PDF] Filling', formId, 'using coords for', baseFormId);
+
+                    const { PDFDocument, StandardFonts, PDFName } = window.PDFLib;
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+                    const data = window.buildAmlFieldData(formData, formId);
+                    const pages = pdfDoc.getPages();
+
+                    // ── Step 1: Strip form field annotations from each page ──
+                    // The PDF's own form field overlays (empty text boxes,
+                    // checkbox outlines) would otherwise cover our overlays.
+                    // The static labels/lines/box graphics remain because they
+                    // live in the page content stream, not the annotations.
+                    try {
+                        for (const page of pages) {
+                            page.node.delete(PDFName.of('Annots'));
+                        }
+                    } catch (e) {
+                        console.warn('[PDF] Could not strip annotations cleanly:', e);
+                    }
+
+                    // Helper: convert ISO dates (YYYY-MM-DD from <input type=date>)
+                    // into DD/MM/YYYY before drawing.
+                    const formatDate = (v) => {
+                        if (!v || typeof v !== 'string') return v;
+                        const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                        if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+                        return v;
+                    };
+
+                    // ── Step 2: Draw text at each mapped coordinate ──
+                    for (const pageIdxStr of Object.keys(coords.text || {})) {
+                        const pageIdx = parseInt(pageIdxStr, 10) - 1;
+                        const page = pages[pageIdx];
+                        if (!page) continue;
+                        for (const field of coords.text[pageIdxStr]) {
+                            let value = window.amlGetValue(data, field.key);
+                            if (value === undefined || value === null || value === '' || value === false) continue;
+                            value = formatDate(value);
+                            try {
+                                page.drawText(String(value).toUpperCase(), {
+                                    x: field.x,
+                                    y: field.y,
+                                    size: 10,
+                                    font: font
+                                });
+                            } catch (e) {
+                                console.warn('[PDF] drawText failed for', field.key, e);
+                            }
+                        }
+                    }
+
+                    // ── Step 3: Draw X marks at each checkbox coordinate ──
+                    for (const pageIdxStr of Object.keys(coords.checkboxes || {})) {
+                        const pageIdx = parseInt(pageIdxStr, 10) - 1;
+                        const page = pages[pageIdx];
+                        if (!page) continue;
+                        for (const box of coords.checkboxes[pageIdxStr]) {
+                            const value = window.amlGetValue(data, box.key);
+                            let shouldTick;
+                            if (box.match !== undefined) shouldTick = (value === box.match);
+                            else                          shouldTick = Boolean(value);
+                            if (!shouldTick) continue;
+                            try {
+                                page.drawText('X', {
+                                    x: box.x - 2,
+                                    y: box.y - 3,
+                                    size: 8,
+                                    font: boldFont
+                                });
+                            } catch (e) {
+                                console.warn('[PDF] checkbox X failed for', box.key, e);
+                            }
+                        }
+                    }
+
+                    const filledBytes = await pdfDoc.save();
+                    console.log('[PDF] Filled', formId, '- size:', filledBytes.byteLength);
+                    return filledBytes;
+
+                } catch (err) {
+                    console.error('[PDF] fillPdfTemplate error:', err);
+                    // Fall back to un-filled template so user still gets something
+                    return new Uint8Array(arrayBuffer);
+                }
             };
 
             // Helper: trigger a single file download via anchor tag
@@ -924,7 +1175,10 @@
                         const formInfo = allForms.find(f => f.id === formId);
                         if (!formInfo) continue;
 
-                        const templateFilename = templateMap[formId];
+                        // Look up template — suffixed IDs (formA1_owner1, formA4_agent2, ...) fall back
+                        // to the base form's template.
+                        const baseFormId = formId.replace(/_.*$/, '');
+                        const templateFilename = templateMap[formId] || templateMap[baseFormId];
                         if (!templateFilename) {
                             console.warn(`No template mapped for form: ${formId}`);
                             continue;
@@ -1414,7 +1668,327 @@
                         )
                     ),
 
+                    // =====================================================
+                    // STEP 5 — AML / KYC Details
+                    // Conditionally rendered sections based on Step 2 CDD answers
+                    // =====================================================
                     step === 5 && React.createElement('div', null,
+                        React.createElement('h2', { className: 'text-2xl font-bold mb-2 text-gray-800' }, 'AML / KYC Details'),
+                        React.createElement('p', { className: 'text-gray-600 mb-6 text-sm' },
+                            'These details are used to fill your AML forms (A1, A2, A3, U1). Only the sections relevant to this deal are shown below.'),
+
+                        // --- Agreement / Form Date ---
+                        React.createElement(FormSection, { title: 'Form Date' },
+                            React.createElement(InputField, {
+                                label: 'Date of Form Completion',
+                                value: formData.agreementDate,
+                                onChange: (v) => updateField('agreementDate', v),
+                                type: 'date'
+                            })
+                        ),
+
+                        // --- Property Category (for AML checkbox row) ---
+                        // Always asked explicitly — never inferred from Step 1.
+                        React.createElement(FormSection, { title: 'Property Category (AML form checkbox)' },
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
+                                [
+                                    { value: 'HDB',    label: 'HDB' },
+                                    { value: 'Condo',  label: 'Condo / Apartment' },
+                                    { value: 'Landed', label: 'Landed Property' },
+                                    { value: 'Others', label: 'Others' }
+                                ].map((opt) =>
+                                    React.createElement(CardButton, {
+                                        key: opt.value,
+                                        selected: formData.propertyCategory === opt.value,
+                                        onClick: () => updateField('propertyCategory', opt.value)
+                                    }, React.createElement('div', { className: 'font-semibold text-gray-800' }, opt.label))
+                                )
+                            )
+                        ),
+
+                        // --- Individual Client Block (A1) ---
+                        formData.clientType === 'Individual' && React.createElement(FormSection, { title: 'Client KYC (Individual — for Form A1)' },
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.clientIdType,
+                                onChange: (v) => updateField('clientIdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.clientDOB,
+                                onChange: (v) => updateField('clientDOB', v),
+                                type: 'date',
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.clientNationality,
+                                onChange: (v) => updateField('clientNationality', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.clientOccupation,
+                                onChange: (v) => updateField('clientOccupation', v),
+                                required: true
+                            })
+                        ),
+
+                        // --- Entity Client Block (A2) ---
+                        formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Entity KYC (for Form A2)' },
+                            React.createElement(InputField, {
+                                label: 'Entity / Company Name (as per ACRA)',
+                                value: formData.entityName,
+                                onChange: (v) => updateField('entityName', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'UEN / Registration No.',
+                                value: formData.entityUen,
+                                onChange: (v) => updateField('entityUen', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Registered Office Address',
+                                value: formData.entityAddress,
+                                onChange: (v) => updateField('entityAddress', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Incorporation',
+                                value: formData.entityDateOfIncorp,
+                                onChange: (v) => updateField('entityDateOfIncorp', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Country of Incorporation',
+                                value: formData.entityCountry,
+                                onChange: (v) => updateField('entityCountry', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Telephone',
+                                value: formData.entityPhone,
+                                onChange: (v) => updateField('entityPhone', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Email',
+                                value: formData.entityEmail,
+                                onChange: (v) => updateField('entityEmail', v),
+                                type: 'email'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Main Business Activity',
+                                value: formData.entityMainBusiness,
+                                onChange: (v) => updateField('entityMainBusiness', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'Entity Type',
+                                value: formData.entityType,
+                                onChange: (v) => updateField('entityType', v),
+                                options: [
+                                    { value: 'Company', label: 'Company' },
+                                    { value: 'LimitedPartnership', label: 'Limited Partnership' },
+                                    { value: 'LLP', label: 'Limited Liability Partnership' },
+                                    { value: 'Corporation', label: 'Corporation' },
+                                    { value: 'Trust', label: 'Trust' }
+                                ]
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'Representative is authorised to act on behalf of the entity',
+                                checked: formData.entityAuthorised,
+                                onChange: (v) => updateField('entityAuthorised', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'Senior management are the same as the beneficial owners',
+                                checked: formData.entitySeniorMgmtIsBO,
+                                onChange: (v) => updateField('entitySeniorMgmtIsBO', v)
+                            }),
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Authorised Representative'),
+                            React.createElement(InputField, {
+                                label: 'Designation (e.g. Director)',
+                                value: formData.entityP1Designation,
+                                onChange: (v) => updateField('entityP1Designation', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Full Name (NRIC/Passport)',
+                                value: formData.entityP1Name,
+                                onChange: (v) => updateField('entityP1Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.entityP1IdType,
+                                onChange: (v) => updateField('entityP1IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.entityP1Nric,
+                                onChange: (v) => updateField('entityP1Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.entityP1Nationality,
+                                onChange: (v) => updateField('entityP1Nationality', v)
+                            })
+                        ),
+
+                        // --- Beneficial Owner 1 (A2 page 2) ---
+                        formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Beneficial Owner 1 (for Form A2 page 2)' },
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.bo1Name,
+                                onChange: (v) => updateField('bo1Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.bo1IdType,
+                                onChange: (v) => updateField('bo1IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.bo1Nric,
+                                onChange: (v) => updateField('bo1Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.bo1Dob,
+                                onChange: (v) => updateField('bo1Dob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Residential Address',
+                                value: formData.bo1Address,
+                                onChange: (v) => updateField('bo1Address', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.bo1Nationality,
+                                onChange: (v) => updateField('bo1Nationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.bo1Occupation,
+                                onChange: (v) => updateField('bo1Occupation', v)
+                            })
+                        ),
+
+                        // --- Principal (acting on behalf) Block (A3) ---
+                        formData.clientActingOnBehalf && React.createElement(FormSection, { title: 'Principal (person client acts for — for Form A3)' },
+                            React.createElement(CheckboxField, {
+                                label: 'Client is authorised to act on behalf (attach Letter of Authorisation)',
+                                checked: formData.principalClientAuthorised,
+                                onChange: (v) => updateField('principalClientAuthorised', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.principalName,
+                                onChange: (v) => updateField('principalName', v),
+                                required: true
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.principalIdType,
+                                onChange: (v) => updateField('principalIdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.principalNric,
+                                onChange: (v) => updateField('principalNric', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.principalDob,
+                                onChange: (v) => updateField('principalDob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Residential Address',
+                                value: formData.principalAddress,
+                                onChange: (v) => updateField('principalAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.principalNationality,
+                                onChange: (v) => updateField('principalNationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.principalOccupation,
+                                onChange: (v) => updateField('principalOccupation', v)
+                            })
+                        ),
+
+                        // --- Counterparty AML Block (U1) ---
+                        formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && React.createElement(FormSection, { title: 'Counterparty KYC (Individual — for Form U1)' },
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyIdType,
+                                onChange: (v) => updateField('counterpartyIdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.counterpartyDob,
+                                onChange: (v) => updateField('counterpartyDob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyNationality,
+                                onChange: (v) => updateField('counterpartyNationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.counterpartyOccupation,
+                                onChange: (v) => updateField('counterpartyOccupation', v)
+                            })
+                        ),
+
+                        // --- Women's Charter Checklist — rental deals only ---
+                        formData.transactionType === 'Rental' && React.createElement(FormSection, { title: "Women's Charter Checklist (residential lease)" },
+                            React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
+                                "Tick this if you have completed all 6 due-diligence checks (NRIC verification, photographs, ICA lookup, immigration passes, etc.). All rows will be marked YES. Leave unchecked to fill the form manually."),
+                            React.createElement(CheckboxField, {
+                                label: 'I have completed all Women\u2019s Charter due-diligence checks',
+                                checked: formData.wcAllChecksDone,
+                                onChange: (v) => updateField('wcAllChecksDone', v)
+                            })
+                        ),
+
+                        React.createElement('div', { className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-sm text-blue-900' },
+                            'Tip: name, NRIC, address, and property address were already collected in the previous step — they will flow into your AML forms automatically.')
+                    ),
+
+                    step === 6 && React.createElement('div', null,
                         React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Review & Generate'),
                         React.createElement('div', { className: 'bg-purple-50 border border-purple-200 rounded-lg p-6 mb-6' },
                             React.createElement('h3', { className: 'font-semibold text-purple-900 mb-4' }, 'Transaction Summary'),
@@ -1501,7 +2075,7 @@
                         }, 'Back'),
                         React.createElement('button', {
                             onClick: () => {
-                                if (step === 5) {
+                                if (step === 6) {
                                     downloadDocuments();
                                 } else {
                                     handleNext();
@@ -1513,7 +2087,7 @@
                                 backgroundColor: (validateStep() && !generating) ? '#5B2D8E' : '#D1D5DB',
                                 color: 'white'
                             }
-                        }, step === 5 ? (generating ? 'Generating...' : 'Download All Documents') : 'Next')
+                        }, step === 6 ? (generating ? 'Generating...' : 'Download All Documents') : 'Next')
                     ),
 
                     !validateStep() && React.createElement('div', { className: 'mt-4 p-4 bg-red-50 border border-red-200 rounded-lg' },
