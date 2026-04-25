@@ -50,7 +50,8 @@
     </script>
 
     <!-- AML PDF coordinate maps + field builder -->
-    <script src="aml-pdf-coords.js"></script>
+    <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
+    <script src="aml-pdf-coords.js?v=9d268605"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -257,9 +258,14 @@
                     counterpartyOccupation: '',
                     counterpartyIdType: 'NRIC',
 
-                    // Women's Charter Checklist — fill all 6 check rows with "YES"
-                    // only when William explicitly confirms. Never auto-assume.
+                    // Women's Charter Checklist — fill only the sections William confirms.
+                    // wcCitizenship drives WHICH rows get the YES:
+                    //   'SCPR'      → rows 1-3 only (Singapore Citizens / PR)
+                    //   'Foreigner' → rows 4-6 only
+                    //   'Mixed'     → all 6 rows
+                    //   ''          → none (form stays blank, user fills manually)
                     wcAllChecksDone: false,
+                    wcCitizenship: null,
                 }
             );
 
@@ -1976,12 +1982,36 @@
                         // --- Women's Charter Checklist — rental deals only ---
                         formData.transactionType === 'Rental' && React.createElement(FormSection, { title: "Women's Charter Checklist (residential lease)" },
                             React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
-                                "Tick this if you have completed all 6 due-diligence checks (NRIC verification, photographs, ICA lookup, immigration passes, etc.). All rows will be marked YES. Leave unchecked to fill the form manually."),
+                                "This form has two sections: NRIC checks for Singapore Citizens/PRs (rows 1-3) and immigration pass checks for foreigners (rows 4-6). Pick who the tenants/occupiers are so only the right section is filled."),
+
+                            React.createElement('div', { className: 'mb-4' },
+                                React.createElement('p', { className: 'text-sm font-semibold text-gray-700 mb-2' }, 'Tenant / Occupier Citizenship'),
+                                React.createElement('div', { className: 'grid grid-cols-3 gap-3' },
+                                    [
+                                        { value: 'SCPR',      label: 'All SC / PR',       desc: 'Rows 1-3 will fill' },
+                                        { value: 'Foreigner', label: 'All Foreigner',     desc: 'Rows 4-6 will fill' },
+                                        { value: 'Mixed',     label: 'Mixed (both)',      desc: 'All 6 rows will fill' }
+                                    ].map((opt) =>
+                                        React.createElement(CardButton, {
+                                            key: opt.value,
+                                            selected: formData.wcCitizenship === opt.value,
+                                            onClick: () => updateField('wcCitizenship', opt.value)
+                                        }, React.createElement('div', null,
+                                            React.createElement('div', { className: 'font-semibold text-gray-800' }, opt.label),
+                                            React.createElement('div', { className: 'text-xs text-gray-500 mt-1' }, opt.desc)
+                                        ))
+                                    )
+                                )
+                            ),
+
                             React.createElement(CheckboxField, {
                                 label: 'I have completed all Women\u2019s Charter due-diligence checks',
                                 checked: formData.wcAllChecksDone,
                                 onChange: (v) => updateField('wcAllChecksDone', v)
-                            })
+                            }),
+
+                            React.createElement('p', { className: 'text-xs text-gray-500 mt-2' },
+                                "Your name, CEA number, and SRI details will auto-fill in the " + (formData.role === 'Seller/Landlord' ? 'Landlord' : 'Tenant') + " salesperson column on page 2. The other column stays blank for the co-broke agent.")
                         ),
 
                         React.createElement('div', { className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-sm text-blue-900' },

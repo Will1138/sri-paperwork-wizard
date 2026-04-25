@@ -193,26 +193,55 @@ window.AML_FORM_COORDS = {
 
     // =================================================
     // Women's Charter Checklist (for Residential Lease), 2 pages, A4 (596 x 842)
-    // Note: "Yes/No" answers on this form are TEXT fields — user types "YES" or "NO".
+    // Notes:
+    //   - "Yes/No" answers are TEXT fields, not checkboxes (user types "YES" or "NO").
+    //   - Rows 1-3 are for SC/PR tenants; rows 4-6 are for Foreigner tenants.
+    //     We fill only the relevant section based on Step 5 citizenship question.
+    //   - Page 2 has two signature blocks: RES (salesperson) + Landlord/Tenant.
+    //     We fill whichever RES column matches William's rep role. The other
+    //     column stays blank (the co-broke agent fills their own).
     // =================================================
     womensCharter: {
         pages: 2,
         text: {
             1: [
-                // Top of form — deal details
-                { x: 68,  y: 433, key: 'propertyAddress' },
-                { x: 68,  y: 415, key: 'leaseStart' },
-                { x: 316, y: 415, key: 'leaseEnd' },
-                // 5 Yes/No rows on page 1 (all get the same wcAnswer value when William confirms)
-                { x: 365, y: 330, key: 'wcAnswer' },   // Row 1 — Check original NRICs
-                { x: 365, y: 300, key: 'wcAnswer' },   // Row 2 — Photographs vs actual persons
-                { x: 365, y: 266, key: 'wcAnswer' },   // Row 3 — Verify NRIC via ICA
-                { x: 365, y: 207, key: 'wcAnswer' },   // Row 4 — Check immigration passes
-                { x: 365, y: 169, key: 'wcAnswer' }    // Row 5 — Cross-check pass details
+                // Top of form — new template moved fields to the RIGHT of each label.
+                // Rects from the annotation dump:
+                //   Address:    [165.4, 431.4, 540.6, 440.5]
+                //   LeaseStart: [150.5, 412.8, 313.2, 420.2]
+                //   LeaseEnd:   [395.5, 412.8, 540.6, 420.2]
+                { x: 168, y: 434, key: 'propertyAddress' },
+                { x: 153, y: 415, key: 'leaseStart' },
+                { x: 398, y: 415, key: 'leaseEnd' },
+
+                // Rows 1-3 — SC/PR checks (only fill if any tenant is SC or PR)
+                { x: 365, y: 330, key: 'wcAnswerSCPR' },      // Row 1 — Check original NRICs
+                { x: 365, y: 300, key: 'wcAnswerSCPR' },      // Row 2 — Photographs vs actual persons
+                { x: 365, y: 266, key: 'wcAnswerSCPR' },      // Row 3 — Verify NRIC via ICA
+
+                // Rows 4-5 — Foreigner checks (only fill if any tenant is a foreigner)
+                { x: 365, y: 207, key: 'wcAnswerForeign' },   // Row 4 — Check immigration passes
+                { x: 365, y: 169, key: 'wcAnswerForeign' }    // Row 5 — Cross-check pass details
             ],
             2: [
-                // Page 2 row 6 — Verify passes via MOM/ICA/FileSG
-                { x: 365, y: 722, key: 'wcAnswer' }
+                // Page 2 row 6 — Verify passes via MOM/ICA/FileSG (foreigner section)
+                { x: 365, y: 722, key: 'wcAnswerForeign' },
+
+                // --- RES signature block (y=495-545) ---
+                // LEFT column — RES representing Landlord
+                { x: 108, y: 537, key: 'wcLeftResName' },     // Name:
+                { x: 151, y: 524, key: 'wcLeftResReg' },      // Registration No:
+                { x: 139, y: 510, key: 'wcLeftResEA' },       // Estate Agent:
+                { x: 101, y: 497, key: 'wcLeftResDate' },     // Date:
+                // RIGHT column — RES representing Tenant
+                { x: 346, y: 539, key: 'wcRightResName' },    // Name:
+                { x: 387, y: 525, key: 'wcRightResReg' },     // Registration No:
+                { x: 376, y: 512, key: 'wcRightResEA' },      // Estate Agent:
+                { x: 340, y: 498, key: 'wcRightResDate' },    // Date:
+
+                // --- Landlord/Tenant acknowledgement block (y=335-345) ---
+                { x: 160, y: 340, key: 'wcLandlordName' },    // Name of Landlord:
+                { x: 449, y: 338, key: 'wcTenantName' }       // Name of Main Tenant:
             ]
         },
         checkboxes: {}
@@ -306,21 +335,48 @@ window.buildAmlFieldData = function(formData, formId) {
     const counterActingIndividual   =  formData.counterpartyActingOnBehalf && !counterPrincipalIsEntity;
     const counterActingCorporate    =  formData.counterpartyActingOnBehalf &&  counterPrincipalIsEntity;
 
-    // Women's Charter: all 6 check rows get filled with YES (or left blank) based on
-    // a single Step 5 confirmation. User rule: never assume — they must explicitly tick.
-    const wcAnswer = formData.wcAllChecksDone ? 'YES' : '';
+    // Women's Charter Checklist — citizenship-aware filling:
+    //   - Rows 1-3 (SC/PR) fill YES only if checks done AND at least one tenant is SC/PR
+    //   - Rows 4-6 (Foreigner) fill YES only if checks done AND at least one tenant is a foreigner
+    const wcChecked = !!formData.wcAllChecksDone;
+    const wcCit     = formData.wcCitizenship || '';  // 'SCPR' | 'Foreigner' | 'Mixed' | ''
+    const wcAnswerSCPR    = (wcChecked && (wcCit === 'SCPR' || wcCit === 'Mixed')) ? 'YES' : '';
+    const wcAnswerForeign = (wcChecked && (wcCit === 'Foreigner' || wcCit === 'Mixed')) ? 'YES' : '';
+
+    // Role-aware fill for page 2 signature/acknowledgement blocks.
+    // William fills only the column matching his rep role; the other column is left blank.
+    const sriAgency  = 'SRI PTE LTD';
+    const todayDate  = formData.agreementDate || new Date().toLocaleDateString('en-GB');
+    const repsLandlord = (formData.role === 'Seller/Landlord');
+    const repsTenant   = (formData.role === 'Buyer/Tenant');
+    // Landlord / Tenant names — client is the side William represents.
+    const wcLandlordName = repsLandlord ? (formData.clientName || '') : (formData.counterpartyName || '');
+    const wcTenantName   = repsTenant   ? (formData.clientName || '') : (formData.counterpartyName || '');
 
     return {
         resName:    (formData.agentName || '').toString(),
         resReg:     (formData.ceaRegistration || '').toString(),
-        dateOfForm: formData.agreementDate || new Date().toLocaleDateString('en-GB'),
+        dateOfForm: todayDate,
         propertyAddress: formData.propertyAddress || '',
         propertyKind: propertyKind,
         repRole: repRole,
         // Women's Charter Checklist fields
         leaseStart: formData.leaseStartDate || '',
         leaseEnd:   formData.leaseEndDate || '',
-        wcAnswer:   wcAnswer,
+        wcAnswerSCPR:    wcAnswerSCPR,
+        wcAnswerForeign: wcAnswerForeign,
+        // RES signature — fill only the relevant column
+        wcLeftResName:  repsLandlord ? (formData.agentName || '') : '',
+        wcLeftResReg:   repsLandlord ? (formData.ceaRegistration || '') : '',
+        wcLeftResEA:    repsLandlord ? sriAgency : '',
+        wcLeftResDate:  repsLandlord ? todayDate : '',
+        wcRightResName: repsTenant ? (formData.agentName || '') : '',
+        wcRightResReg:  repsTenant ? (formData.ceaRegistration || '') : '',
+        wcRightResEA:   repsTenant ? sriAgency : '',
+        wcRightResDate: repsTenant ? todayDate : '',
+        // Landlord + Tenant acknowledgement names
+        wcLandlordName: wcLandlordName,
+        wcTenantName:   wcTenantName,
 
         client: {
             fullName:       formData.clientName || '',
