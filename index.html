@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=formb-pilot-1"></script>
+    <script src="aml-pdf-coords.js?v=phase1-ui-1"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -266,11 +266,47 @@
                     //   ''          → none (form stays blank, user fills manually)
                     wcAllChecksDone: false,
                     wcCitizenship: null,
+
+                    // --- Others-specify reveal text fields (shown only when ID/type === 'Others') ---
+                    entityTypeOthersDetail: '',
+                    entityP1IdOthersDetail: '',
+                    entityP2IdOthersDetail: '',
+                    bo1IdOthersDetail: '',
+                    bo2IdOthersDetail: '',
+                    principalIdOthersDetail: '',
+                    counterpartyIdOthersDetail: '',
+                    counterpartyPropertyOthersDetail: '',
+
+                    // --- Form B screening exceptions (default: all No, no risk reason) ---
+                    // Tap-to-flag pattern: showExceptions stays false for clean deals;
+                    // only when toggled does William see the 35 individual Yes/No questions.
+                    formB: {
+                        showExceptions: false,
+                        s1: ['No','No','No','No','No','No'],
+                        s2: Array(29).fill('No'),
+                        riskReason: ''
+                    },
                 }
             );
 
             const updateField = (field, value) => {
                 setFormData({ type: 'SET_FIELD', field, value });
+            };
+
+            // Helper: update one key inside the nested formB object (Form B screening exceptions)
+            const updateFormB = (key, value) => {
+                setFormData({
+                    type: 'SET_FIELD',
+                    field: 'formB',
+                    value: { ...formData.formB, [key]: value }
+                });
+            };
+
+            // Helper: update one Section 1 / Section 2 answer at a given index
+            const updateFormBAnswer = (section, idx, value) => {
+                const arr = [...formData.formB[section]];
+                arr[idx] = value;
+                updateFormB(section, arr);
             };
 
             const updateForm = (formName, checked) => {
@@ -608,7 +644,7 @@
                 'formA1': 'Form A1.pdf',
                 'formA2': 'Form A2.pdf',
                 'formA3': 'Form A3.pdf',
-                'formA4': 'Form A4.docx',
+                'formA4': 'Form A4.pdf',
                 'formB': 'Form B.pdf',
                 'formC': 'Form C.docx',
                 'formD': 'Form D.docx',
@@ -1802,8 +1838,14 @@
                                     { value: 'LimitedPartnership', label: 'Limited Partnership' },
                                     { value: 'LLP', label: 'Limited Liability Partnership' },
                                     { value: 'Corporation', label: 'Corporation' },
-                                    { value: 'Trust', label: 'Trust' }
+                                    { value: 'Trust', label: 'Trust' },
+                                    { value: 'Others', label: 'Others' }
                                 ]
+                            }),
+                            formData.entityType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify Entity Type',
+                                value: formData.entityTypeOthersDetail,
+                                onChange: (v) => updateField('entityTypeOthersDetail', v)
                             }),
                             React.createElement(CheckboxField, {
                                 label: 'Representative is authorised to act on behalf of the entity',
@@ -1837,6 +1879,11 @@
                                     { value: 'Others', label: 'Others' }
                                 ]
                             }),
+                            formData.entityP1IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.entityP1IdOthersDetail,
+                                onChange: (v) => updateField('entityP1IdOthersDetail', v)
+                            }),
                             React.createElement(InputField, {
                                 label: 'NRIC / Passport No.',
                                 value: formData.entityP1Nric,
@@ -1866,6 +1913,11 @@
                                     { value: 'WorkPermit', label: 'Work Permit' },
                                     { value: 'Others', label: 'Others' }
                                 ]
+                            }),
+                            formData.bo1IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.bo1IdOthersDetail,
+                                onChange: (v) => updateField('bo1IdOthersDetail', v)
                             }),
                             React.createElement(InputField, {
                                 label: 'NRIC / Passport No.',
@@ -1919,6 +1971,11 @@
                                     { value: 'Others', label: 'Others' }
                                 ]
                             }),
+                            formData.principalIdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.principalIdOthersDetail,
+                                onChange: (v) => updateField('principalIdOthersDetail', v)
+                            }),
                             React.createElement(InputField, {
                                 label: 'NRIC / Passport No.',
                                 value: formData.principalNric,
@@ -1960,6 +2017,11 @@
                                     { value: 'WorkPermit', label: 'Work Permit' },
                                     { value: 'Others', label: 'Others' }
                                 ]
+                            }),
+                            formData.counterpartyIdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyIdOthersDetail,
+                                onChange: (v) => updateField('counterpartyIdOthersDetail', v)
                             }),
                             React.createElement(InputField, {
                                 label: 'Date of Birth',
@@ -2012,6 +2074,142 @@
 
                             React.createElement('p', { className: 'text-xs text-gray-500 mt-2' },
                                 "Your name, CEA number, and SRI details will auto-fill in the " + (formData.role === 'Seller/Landlord' ? 'Landlord' : 'Tenant') + " salesperson column on page 2. The other column stays blank for the co-broke agent.")
+                        ),
+
+                        // --- Form B Screening Exceptions (tap-to-flag) ---
+                        // Only render when Form B will be generated for this deal.
+                        // Default banner: all 35 questions answered "No" (standard clean transaction).
+                        // William taps "Show questions" only when he needs to flag a Yes anywhere.
+                        // Any Yes auto-reveals the "Reason for higher risk" textarea.
+                        requiredForms.amlkyc.some(f => f.id === 'formB') && React.createElement(FormSection,
+                            { title: 'Form B — Screening Exceptions' },
+                            React.createElement('div', {
+                                className: 'rounded-lg border-2 border-green-200 bg-green-50 p-4 text-sm text-green-900 mb-4'
+                            },
+                                React.createElement('p', { className: 'font-semibold' },
+                                    'Default: all 35 screening checks answered "No" — standard clean transaction.'),
+                                React.createElement('p', { className: 'text-xs mt-1 text-green-800' },
+                                    'Section 1 (6 PEP / sanctions / designated persons questions) and Section 2 (29 red flag indicators).')
+                            ),
+                            React.createElement(CheckboxField, {
+                                label: 'I need to flag an exception (one or more answers differ from "No")',
+                                checked: formData.formB.showExceptions,
+                                onChange: (v) => updateFormB('showExceptions', v)
+                            }),
+                            formData.formB.showExceptions && React.createElement('div', { className: 'mt-6 space-y-6' },
+                                // Section 1
+                                React.createElement('div', null,
+                                    React.createElement('h4', { className: 'font-semibold text-gray-800 mb-3' },
+                                        'Section 1 — PEP, Sanctions & Designated Persons (6 questions)'),
+                                    React.createElement('div', { className: 'space-y-3' },
+                                        [
+                                            'Q1. Is the client/BO a foreign PEP, family member or close associate of a foreign PEP?',
+                                            'Q2. Is the transaction high-risk? (Refer to red-flag indicators)',
+                                            'Q3. Is the client/BO from a high-risk or other monitored jurisdiction?',
+                                            'Q4. Is the client/BO a designated individual under TSOFA or the UN Act?',
+                                            'Q5. Is the client/BO a designated individual/entity under UNSC sanctions or MAS Notification PSN02?',
+                                            'Q6. Other concerns? (Yes / No / N/A)'
+                                        ].map((qText, i) =>
+                                            React.createElement('div', {
+                                                key: 's1-' + i,
+                                                className: 'flex items-start gap-3 p-3 rounded border border-gray-200 bg-white'
+                                            },
+                                                React.createElement('p', { className: 'flex-1 text-sm text-gray-700' }, qText),
+                                                React.createElement('div', { className: 'flex gap-2 shrink-0' },
+                                                    ['No', 'Yes'].concat(i === 5 ? ['NA'] : []).map(opt =>
+                                                        React.createElement('button', {
+                                                            key: opt,
+                                                            type: 'button',
+                                                            onClick: () => updateFormBAnswer('s1', i, opt),
+                                                            className: 'px-3 py-1 text-xs font-semibold rounded border-2 ' + (
+                                                                formData.formB.s1[i] === opt
+                                                                    ? (opt === 'Yes' ? 'bg-red-600 text-white border-red-600' : opt === 'NA' ? 'bg-gray-500 text-white border-gray-500' : 'bg-green-600 text-white border-green-600')
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                                                            )
+                                                        }, opt === 'NA' ? 'N/A' : opt)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                                // Section 2
+                                React.createElement('div', null,
+                                    React.createElement('h4', { className: 'font-semibold text-gray-800 mb-3' },
+                                        'Section 2 — Red Flag Indicators (29 questions)'),
+                                    React.createElement('p', { className: 'text-xs text-gray-500 mb-3' },
+                                        'Refer to the printed Form B for the full wording of each indicator. Short labels here for quick scan.'),
+                                    React.createElement('div', { className: 'space-y-2 max-h-96 overflow-y-auto pr-2' },
+                                        [
+                                            'Q1. Negative news / criminal links',
+                                            'Q2. Multiple travel docs / CBI / RBI',
+                                            'Q3. Shell company hiding BO identity',
+                                            'Q4. Overly concerned about AML/CFT',
+                                            'Q5. Resistant to providing BO / source info',
+                                            'Q6. Hesitant to put name on documents',
+                                            'Q7. Different names on OTP / closing docs',
+                                            'Q8. Purchasing in nominee name',
+                                            'Q9. Acting as proxy to conceal BO',
+                                            'Q10. Structuring to hide BO identity',
+                                            'Q11. Last-minute changes to purchasing party',
+                                            'Q12. Different ID docs across purchases',
+                                            'Q13. Suspicious addresses',
+                                            'Q14. Debt significantly higher than value',
+                                            'Q15. Unconcerned about value / location',
+                                            'Q16. Purchasing without inspection',
+                                            'Q17. Multiple properties acquired quickly',
+                                            'Q18. New legal entity with large amounts',
+                                            'Q19. Business activity does not match transaction',
+                                            'Q20. High-end property without professional help',
+                                            'Q21. Cash transaction over S$20,000',
+                                            'Q22. Substantial cash down payment over S$20,000',
+                                            'Q23. Rent paid far in advance (>3 months)',
+                                            'Q24. Unexplained third-party payments',
+                                            'Q25. Transaction value differs from market',
+                                            'Q26. Successive transactions with unusual prices',
+                                            'Q27. Unnecessarily complex legal structures',
+                                            'Q28. Property purchased without a loan',
+                                            'Q29. Transfer within unusually short period'
+                                        ].map((qText, i) =>
+                                            React.createElement('div', {
+                                                key: 's2-' + i,
+                                                className: 'flex items-start gap-3 p-2 rounded border border-gray-200 bg-white'
+                                            },
+                                                React.createElement('p', { className: 'flex-1 text-xs text-gray-700' }, qText),
+                                                React.createElement('div', { className: 'flex gap-2 shrink-0' },
+                                                    ['No', 'Yes'].map(opt =>
+                                                        React.createElement('button', {
+                                                            key: opt,
+                                                            type: 'button',
+                                                            onClick: () => updateFormBAnswer('s2', i, opt),
+                                                            className: 'px-3 py-1 text-xs font-semibold rounded border-2 ' + (
+                                                                formData.formB.s2[i] === opt
+                                                                    ? (opt === 'Yes' ? 'bg-red-600 text-white border-red-600' : 'bg-green-600 text-white border-green-600')
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                                                            )
+                                                        }, opt)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                                // Risk reason (auto-revealed when any Yes)
+                                (formData.formB.s1.some(v => v === 'Yes') || formData.formB.s2.some(v => v === 'Yes')) &&
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
+                                        'Reason for higher risk (required when any answer is Yes)',
+                                        React.createElement('span', { className: 'text-red-500' }, '*')
+                                    ),
+                                    React.createElement('textarea', {
+                                        rows: 4,
+                                        value: formData.formB.riskReason,
+                                        onChange: (e) => updateFormB('riskReason', e.target.value),
+                                        className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
+                                        placeholder: 'Explain the basis for the higher-risk determination — this text fills Page 3 of Form B and triggers ECDD via Form C.'
+                                    })
+                                )
+                            )
                         ),
 
                         React.createElement('div', { className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-sm text-blue-900' },

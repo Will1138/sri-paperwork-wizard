@@ -298,6 +298,99 @@ window.AML_FORM_COORDS = {
     },
 
     // =================================================
+    // Form A4 — Particulars of Legal Person (Entity/Legal Arrangement)
+    //          Your Client is Acting on Behalf Of, 2 pages
+    // Page 1: Entity details (Section 1) + Senior Management Personnel 1-3 (Section 2)
+    // Page 2: Beneficial Owners 4-5 (Section 3)
+    // =================================================
+    formA4: {
+        pages: 2,
+        text: {
+            1: [
+                // Section 1 — Particulars of Legal Person
+                { x: 257.6, y: 616.7, key: 'entity.name' },
+                { x: 189.7, y: 579.5, key: 'entity.registeredAddress' },
+                { x:  76.9, y: 542.5, key: 'entity.principalAddress' },
+                { x: 162.9, y: 523.2, key: 'entity.phone' },
+                { x: 358.9, y: 523.6, key: 'entity.email' },
+                { x: 246.7, y: 512.2, key: 'entity.uen' },
+                { x: 469.2, y: 511.6, key: 'entity.dateOfIncorp' },
+                { x: 277.6, y: 501.0, key: 'entity.country' },
+                { x: 174.4, y: 482.3, key: 'entity.mainBusiness' },
+                { x: 279.3, y: 441.2, key: 'entity.typeOthersDetail' },
+                // Section 2 — Senior Management Person 1
+                { x: 172.7, y: 368.0, key: 'entity.p1Designation' },
+                { x: 225.0, y: 348.8, key: 'entity.p1Name' },
+                { x: 344.0, y: 311.9, key: 'entity.p1IdOthersDetail' },
+                { x: 203.2, y: 293.1, key: 'entity.p1Nric' },
+                { x: 346.7, y: 293.2, key: 'entity.p1Nationality' },
+                // Section 2 — Senior Management Person 2
+                { x: 172.7, y: 274.0, key: 'entity.p2Designation' },
+                { x: 225.0, y: 255.2, key: 'entity.p2Name' },
+                { x: 344.0, y: 218.3, key: 'entity.p2IdOthersDetail' },
+                { x: 204.1, y: 199.4, key: 'entity.p2Nric' },
+                { x: 346.7, y: 199.6, key: 'entity.p2Nationality' }
+                // Person 3 left blank — wizard currently collects only p1/p2
+            ],
+            2: [
+                // Section 3 — Beneficial Owner 1 (Person 4 on the form)
+                { x: 225.0, y: 638.8, key: 'bo1.fullName' },
+                { x: 344.3, y: 601.3, key: 'bo1.idOthersDetail' },
+                { x: 166.0, y: 582.4, key: 'bo1.address' },
+                { x: 202.2, y: 562.6, key: 'bo1.nricOrPassport' },
+                { x: 344.8, y: 563.9, key: 'bo1.dob' },
+                { x: 128.6, y: 544.2, key: 'bo1.nationality' },
+                { x: 346.7, y: 544.7, key: 'bo1.occupation' },
+                // Section 3 — Beneficial Owner 2 (Person 5 on the form)
+                { x: 225.0, y: 507.2, key: 'bo2.fullName' },
+                { x: 344.0, y: 470.3, key: 'bo2.idOthersDetail' },
+                { x: 166.0, y: 451.3, key: 'bo2.address' },
+                { x: 202.9, y: 432.4, key: 'bo2.nricOrPassport' },
+                { x: 344.8, y: 432.4, key: 'bo2.dob' },
+                { x: 128.3, y: 412.8, key: 'bo2.nationality' },
+                { x: 346.9, y: 413.6, key: 'bo2.occupation' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // "Is the Client authorised to act on behalf of the Legal Person?"
+                { x: 336.8, y: 664.9, key: 'formA4.clientAuthorised', match: 'Yes' },
+                { x: 368.8, y: 665.0, key: 'formA4.clientAuthorised', match: 'No'  },
+                // Type of entity / legal arrangement (Section 1 bottom row)
+                { x: 225.2, y: 463.2, key: 'entity.type', match: 'LimitedPartnership' },
+                { x: 318.4, y: 463.3, key: 'entity.type', match: 'LLP' },
+                { x: 442.6, y: 463.2, key: 'entity.type', match: 'Company' },
+                { x:  82.9, y: 443.4, key: 'entity.type', match: 'Corporation' },
+                { x: 147.8, y: 443.2, key: 'entity.type', match: 'Trust' },
+                { x: 184.7, y: 443.2, key: 'entity.type', match: 'Others' },
+                // Person 1 ID type
+                { x:  81.9, y: 312.0, key: 'entity.p1IdType', match: 'NRIC' },
+                { x: 143.9, y: 312.2, key: 'entity.p1IdType', match: 'Passport' },
+                { x: 191.5, y: 312.2, key: 'entity.p1IdType', match: 'WorkPermit' },
+                { x: 253.0, y: 312.0, key: 'entity.p1IdType', match: 'Others' },
+                // Person 2 ID type
+                { x:  81.8, y: 218.7, key: 'entity.p2IdType', match: 'NRIC' },
+                { x: 143.7, y: 218.6, key: 'entity.p2IdType', match: 'Passport' },
+                { x: 191.5, y: 218.6, key: 'entity.p2IdType', match: 'WorkPermit' },
+                { x: 252.9, y: 218.5, key: 'entity.p2IdType', match: 'Others' }
+                // Person 3 ID type — no formData, left blank
+            ],
+            2: [
+                // BO1 (Person 4) ID type
+                { x:  81.4, y: 601.8, key: 'bo1.idType', match: 'NRIC' },
+                { x: 143.8, y: 601.4, key: 'bo1.idType', match: 'Passport' },
+                { x: 191.6, y: 601.4, key: 'bo1.idType', match: 'WorkPermit' },
+                { x: 253.0, y: 601.4, key: 'bo1.idType', match: 'Others' },
+                // BO2 (Person 5) ID type
+                { x:  81.7, y: 470.4, key: 'bo2.idType', match: 'NRIC' },
+                { x: 143.8, y: 470.4, key: 'bo2.idType', match: 'Passport' },
+                { x: 191.5, y: 470.3, key: 'bo2.idType', match: 'WorkPermit' },
+                { x: 253.2, y: 470.7, key: 'bo2.idType', match: 'Others' }
+            ]
+        }
+    },
+
+    // =================================================
     // Form B — AML Risk Determination & Screening Checklist (Client side), 3 pages
     // Page 1: Name + ID + Section 1 (6 PEP/sanctions Qs, 13 boxes)
     // Page 2: Section 2 (29 red flag indicators, 58 boxes — Yes col x≈460, No col x≈500)
@@ -437,10 +530,20 @@ window.buildAmlFieldData = function(formData, formId) {
         riskReason: ''                                // Filled only when any answer is Yes
     };
     const formBOverrides = formData.formB || {};
-    const formB = {
+    // Only honour user overrides when William has explicitly tapped "show exceptions".
+    // If unchecked (default), fall back to all-No. This means flipping the toggle off
+    // is a clean reset — answers chosen earlier no longer leak into the PDF.
+    const formB = formBOverrides.showExceptions ? {
         s1: (formBOverrides.s1 && formBOverrides.s1.length === 6) ? formBOverrides.s1 : formBDefaults.s1,
         s2: (formBOverrides.s2 && formBOverrides.s2.length === 29) ? formBOverrides.s2 : formBDefaults.s2,
         riskReason: formBOverrides.riskReason || formBDefaults.riskReason
+    } : formBDefaults;
+
+    // Form A4 — defaults
+    // "Is the Client authorised to act on behalf of the Legal Person?" — default Yes
+    // (William will only generate Form A4 when there is proper authorisation in place)
+    const formA4 = {
+        clientAuthorised: (formData.formA4 && formData.formA4.clientAuthorised) || 'Yes'
     };
 
     return {
@@ -452,6 +555,7 @@ window.buildAmlFieldData = function(formData, formId) {
         propertyKind: propertyKind,
         repRole: repRole,
         formB: formB,
+        formA4: formA4,
         // Women's Charter Checklist fields
         leaseStart: formData.leaseStartDate || '',
         leaseEnd:   formData.leaseEndDate || '',
@@ -489,10 +593,12 @@ window.buildAmlFieldData = function(formData, formId) {
             dateOfIncorp:        formData.entityDateOfIncorp || '',
             country:             formData.entityCountry || 'Singapore',
             registeredAddress:   formData.entityAddress || '',
+            principalAddress:    formData.entityPrincipalAddress || '',
             phone:               formData.entityPhone || '',
             email:               formData.entityEmail || '',
             mainBusiness:        formData.entityMainBusiness || '',
             type:                formData.entityType || 'Company',
+            typeOthersDetail:    formData.entityTypeOthersDetail || '',
             authorised:          formData.entityAuthorised !== false,
             authLetterRef:       formData.entityAuthLetterRef || '',
             seniorMgmtIsBO:      !!formData.entitySeniorMgmtIsBO,
@@ -501,31 +607,35 @@ window.buildAmlFieldData = function(formData, formId) {
             p1Nric:              formData.entityP1Nric || '',
             p1Nationality:       formData.entityP1Nationality || '',
             p1IdType:            formData.entityP1IdType || 'NRIC',
+            p1IdOthersDetail:    formData.entityP1IdOthersDetail || '',
             p2Designation:       formData.entityP2Designation || '',
             p2Name:              formData.entityP2Name || '',
             p2Nric:              formData.entityP2Nric || '',
             p2Nationality:       formData.entityP2Nationality || '',
-            p2IdType:            formData.entityP2IdType || 'NRIC'
+            p2IdType:            formData.entityP2IdType || 'NRIC',
+            p2IdOthersDetail:    formData.entityP2IdOthersDetail || ''
         },
 
         bo1: {
-            fullName:       formData.bo1Name || '',
-            nricOrPassport: formData.bo1Nric || '',
-            dob:            formData.bo1Dob || '',
-            address:        formData.bo1Address || '',
-            nationality:    formData.bo1Nationality || '',
-            occupation:     formData.bo1Occupation || '',
-            idType:         formData.bo1IdType || 'NRIC'
+            fullName:        formData.bo1Name || '',
+            nricOrPassport:  formData.bo1Nric || '',
+            dob:             formData.bo1Dob || '',
+            address:         formData.bo1Address || '',
+            nationality:     formData.bo1Nationality || '',
+            occupation:      formData.bo1Occupation || '',
+            idType:          formData.bo1IdType || 'NRIC',
+            idOthersDetail:  formData.bo1IdOthersDetail || ''
         },
 
         bo2: {
-            fullName:       formData.bo2Name || '',
-            nricOrPassport: formData.bo2Nric || '',
+            fullName:        formData.bo2Name || '',
+            nricOrPassport:  formData.bo2Nric || '',
             dob:             formData.bo2Dob || '',
-            address:        formData.bo2Address || '',
-            nationality:    formData.bo2Nationality || '',
-            occupation:     formData.bo2Occupation || '',
-            idType:         formData.bo2IdType || 'NRIC'
+            address:         formData.bo2Address || '',
+            nationality:     formData.bo2Nationality || '',
+            occupation:      formData.bo2Occupation || '',
+            idType:          formData.bo2IdType || 'NRIC',
+            idOthersDetail:  formData.bo2IdOthersDetail || ''
         },
 
         principal: {
