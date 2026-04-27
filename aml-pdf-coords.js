@@ -534,6 +534,132 @@ window.AML_FORM_COORDS = {
                 { x: 460.5, y: 203.3, key: 'formU5.s2.28', match: 'Yes' }, { x: 503.8, y: 203.2, key: 'formU5.s2.28', match: 'No' }
             ]
         }
+    },
+
+    // =================================================
+    // Form U2 — Counterparty Particulars Form (For Entity / Legal Arrangement), 2 pages
+    // Parallel to A2/A4 but for the counterparty side.
+    // Page 1: Section 1 (entity details) + Section 2 (Senior Management Persons 1 & 2)
+    // Page 2: Section 3 (Beneficial Owners 1 & 2)
+    // =================================================
+    formU2: {
+        pages: 2,
+        text: {
+            1: [
+                // Section 1 — Particulars of Entity
+                { x: 174.6, y: 627.7, key: 'counterpartyEntity.name' },
+                { x: 189.2, y: 609.0, key: 'counterpartyEntity.registeredAddress' },
+                { x: 382.2, y: 589.5, key: 'counterpartyEntity.principalAddress' },
+                { x: 162.1, y: 571.7, key: 'counterpartyEntity.phone' },
+                { x: 361.0, y: 571.1, key: 'counterpartyEntity.email' },
+                { x: 244.2, y: 552.4, key: 'counterpartyEntity.uen' },
+                { x: 219.2, y: 533.6, key: 'counterpartyEntity.dateOfIncorp' },
+                { x: 277.8, y: 514.9, key: 'counterpartyEntity.country' },
+                { x: 174.4, y: 495.7, key: 'counterpartyEntity.mainBusiness' },
+                { x: 281.1, y: 455.0, key: 'counterpartyEntity.typeOthersDetail' },
+                // Section 2 — Senior Management Person 1
+                { x: 179.6, y: 384.4, key: 'counterpartyEntity.p1Designation' },
+                { x: 225.0, y: 365.6, key: 'counterpartyEntity.p1Name' },
+                { x: 344.3, y: 328.2, key: 'counterpartyEntity.p1IdOthersDetail' },
+                { x: 201.7, y: 308.7, key: 'counterpartyEntity.p1Nric' },
+                { x: 346.7, y: 309.5, key: 'counterpartyEntity.p1Nationality' },
+                // Section 2 — Senior Management Person 2
+                { x: 179.6, y: 290.8, key: 'counterpartyEntity.p2Designation' },
+                { x: 225.0, y: 272.0, key: 'counterpartyEntity.p2Name' },
+                { x: 344.3, y: 234.6, key: 'counterpartyEntity.p2IdOthersDetail' },
+                { x: 202.0, y: 215.9, key: 'counterpartyEntity.p2Nric' },
+                { x: 346.7, y: 215.9, key: 'counterpartyEntity.p2Nationality' }
+            ],
+            2: [
+                // Section 3 — Beneficial Owner 1
+                { x: 225.2, y: 628.7, key: 'counterpartyBo1.fullName' },
+                { x: 344.3, y: 591.2, key: 'counterpartyBo1.idOthersDetail' },
+                { x: 166.0, y: 572.3, key: 'counterpartyBo1.address' },
+                { x: 201.7, y: 554.1, key: 'counterpartyBo1.nricOrPassport' },
+                { x: 344.8, y: 553.8, key: 'counterpartyBo1.dob' },
+                { x: 129.9, y: 534.5, key: 'counterpartyBo1.nationality' },
+                { x: 346.9, y: 535.1, key: 'counterpartyBo1.occupation' },
+                // Section 3 — Beneficial Owner 2
+                { x: 225.0, y: 486.6, key: 'counterpartyBo2.fullName' },
+                { x: 344.3, y: 449.2, key: 'counterpartyBo2.idOthersDetail' },
+                { x: 166.0, y: 430.2, key: 'counterpartyBo2.address' },
+                { x: 202.4, y: 411.9, key: 'counterpartyBo2.nricOrPassport' },
+                { x: 344.8, y: 411.7, key: 'counterpartyBo2.dob' },
+                { x: 128.6, y: 392.7, key: 'counterpartyBo2.nationality' },
+                { x: 346.7, y: 393.0, key: 'counterpartyBo2.occupation' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // "Is the representative authorised to act on behalf of the UCP?" Yes/No
+                { x: 193.0, y: 649.8, key: 'counterpartyEntity.authorised', match: true  },
+                { x: 222.8, y: 649.7, key: 'counterpartyEntity.authorised', match: false },
+                // Entity type — top row (LP / LLP / Company)
+                { x: 225.0, y: 477.0, key: 'counterpartyEntity.type', match: 'LimitedPartnership' },
+                { x: 318.3, y: 477.1, key: 'counterpartyEntity.type', match: 'LLP' },
+                { x: 442.6, y: 476.9, key: 'counterpartyEntity.type', match: 'Company' },
+                // Entity type — bottom row (Corporation / Trust / Others)
+                { x:  82.8, y: 457.1, key: 'counterpartyEntity.type', match: 'Corporation' },
+                { x: 150.5, y: 457.2, key: 'counterpartyEntity.type', match: 'Trust' },
+                { x: 187.1, y: 457.1, key: 'counterpartyEntity.type', match: 'Others' },
+                // "Are senior management personnel the beneficial owners?" Yes/No
+                { x: 471.9, y: 413.8, key: 'counterpartyEntity.seniorMgmtIsBO', match: true  },
+                { x: 502.3, y: 414.0, key: 'counterpartyEntity.seniorMgmtIsBO', match: false },
+                // P1 ID type
+                { x:  81.7, y: 328.5, key: 'counterpartyEntity.p1IdType', match: 'NRIC' },
+                { x: 143.7, y: 328.4, key: 'counterpartyEntity.p1IdType', match: 'Passport' },
+                { x: 191.6, y: 328.5, key: 'counterpartyEntity.p1IdType', match: 'WorkPermit' },
+                { x: 253.1, y: 328.5, key: 'counterpartyEntity.p1IdType', match: 'Others' },
+                // P2 ID type
+                { x:  81.8, y: 235.0, key: 'counterpartyEntity.p2IdType', match: 'NRIC' },
+                { x: 143.7, y: 234.9, key: 'counterpartyEntity.p2IdType', match: 'Passport' },
+                { x: 191.5, y: 235.1, key: 'counterpartyEntity.p2IdType', match: 'WorkPermit' },
+                { x: 253.1, y: 234.7, key: 'counterpartyEntity.p2IdType', match: 'Others' }
+            ],
+            2: [
+                // BO1 ID type
+                { x:  81.7, y: 591.4, key: 'counterpartyBo1.idType', match: 'NRIC' },
+                { x: 143.6, y: 591.5, key: 'counterpartyBo1.idType', match: 'Passport' },
+                { x: 191.7, y: 591.8, key: 'counterpartyBo1.idType', match: 'WorkPermit' },
+                { x: 253.0, y: 591.8, key: 'counterpartyBo1.idType', match: 'Others' },
+                // BO2 ID type
+                { x:  81.6, y: 449.8, key: 'counterpartyBo2.idType', match: 'NRIC' },
+                { x: 143.6, y: 449.7, key: 'counterpartyBo2.idType', match: 'Passport' },
+                { x: 191.5, y: 449.5, key: 'counterpartyBo2.idType', match: 'WorkPermit' },
+                { x: 253.1, y: 449.6, key: 'counterpartyBo2.idType', match: 'Others' }
+            ]
+        }
+    },
+
+    // =================================================
+    // Form U3 — Particulars of Individual the Counterparty is Acting on Behalf Of, 1 page
+    // Parallel to Form A3 but for the counterparty side.
+    // =================================================
+    formU3: {
+        pages: 1,
+        text: {
+            1: [
+                { x:  80.4, y: 648.8, key: 'counterpartyPrincipal.fullName' },
+                { x: 344.0, y: 611.9, key: 'counterpartyPrincipal.idOthersDetail' },
+                { x: 166.4, y: 574.7, key: 'counterpartyPrincipal.address' },
+                { x: 202.6, y: 536.9, key: 'counterpartyPrincipal.nricOrPassport' },
+                { x: 345.2, y: 537.5, key: 'counterpartyPrincipal.dob' },
+                { x: 129.0, y: 499.8, key: 'counterpartyPrincipal.nationality' },
+                { x: 346.9, y: 500.5, key: 'counterpartyPrincipal.occupation' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // "Is the UCP authorised to act on behalf of the Individual?"
+                { x: 319.4, y: 689.7, key: 'counterpartyPrincipal.clientAuthorised', match: 'Yes' },
+                { x: 349.1, y: 689.6, key: 'counterpartyPrincipal.clientAuthorised', match: 'No'  },
+                // ID type
+                { x:  80.8, y: 612.0, key: 'counterpartyPrincipal.idType', match: 'NRIC' },
+                { x: 143.6, y: 612.0, key: 'counterpartyPrincipal.idType', match: 'Passport' },
+                { x: 191.6, y: 612.3, key: 'counterpartyPrincipal.idType', match: 'WorkPermit' },
+                { x: 253.3, y: 612.5, key: 'counterpartyPrincipal.idType', match: 'Others' }
+            ]
+        }
     }
 };
 
@@ -751,6 +877,71 @@ window.buildAmlFieldData = function(formData, formId) {
             actingForSelf:            counterActingSelf,
             actingOnBehalfIndividual: counterActingIndividual,
             actingOnBehalfCorporate:  counterActingCorporate
+        },
+
+        // Person the counterparty is acting on behalf of (Form U3, Form U2 BO of acting entity, etc.)
+        counterpartyPrincipal: {
+            fullName:         formData.counterpartyPrincipalName || '',
+            nricOrPassport:   formData.counterpartyPrincipalNric || '',
+            dob:              formData.counterpartyPrincipalDob || '',
+            address:          formData.counterpartyPrincipalAddress || '',
+            nationality:      formData.counterpartyPrincipalNationality || '',
+            occupation:       formData.counterpartyPrincipalOccupation || '',
+            idType:           formData.counterpartyPrincipalIdType || 'NRIC',
+            idOthersDetail:   formData.counterpartyPrincipalIdOthersDetail || '',
+            // Default Yes — William only generates U3 when authorisation is in place
+            clientAuthorised: formData.counterpartyPrincipalAuthorised || 'Yes'
+        },
+
+        // Counterparty entity (Form U2). Mirrors `entity` block but for the other side.
+        counterpartyEntity: {
+            name:                formData.counterpartyEntityName || '',
+            uen:                 formData.counterpartyEntityUen || '',
+            dateOfIncorp:        formData.counterpartyEntityDateOfIncorp || '',
+            country:             formData.counterpartyEntityCountry || 'Singapore',
+            registeredAddress:   formData.counterpartyEntityAddress || '',
+            principalAddress:    formData.counterpartyEntityPrincipalAddress || '',
+            phone:               formData.counterpartyEntityPhone || '',
+            email:               formData.counterpartyEntityEmail || '',
+            mainBusiness:        formData.counterpartyEntityMainBusiness || '',
+            type:                formData.counterpartyEntityType || 'Company',
+            typeOthersDetail:    formData.counterpartyEntityTypeOthersDetail || '',
+            authorised:          formData.counterpartyEntityAuthorised !== false,
+            seniorMgmtIsBO:      !!formData.counterpartyEntitySeniorMgmtIsBO,
+            p1Designation:       formData.counterpartyEntityP1Designation || '',
+            p1Name:              formData.counterpartyEntityP1Name || '',
+            p1Nric:              formData.counterpartyEntityP1Nric || '',
+            p1Nationality:       formData.counterpartyEntityP1Nationality || '',
+            p1IdType:            formData.counterpartyEntityP1IdType || 'NRIC',
+            p1IdOthersDetail:    formData.counterpartyEntityP1IdOthersDetail || '',
+            p2Designation:       formData.counterpartyEntityP2Designation || '',
+            p2Name:              formData.counterpartyEntityP2Name || '',
+            p2Nric:              formData.counterpartyEntityP2Nric || '',
+            p2Nationality:       formData.counterpartyEntityP2Nationality || '',
+            p2IdType:            formData.counterpartyEntityP2IdType || 'NRIC',
+            p2IdOthersDetail:    formData.counterpartyEntityP2IdOthersDetail || ''
+        },
+
+        // Beneficial owners of the counterparty entity (Form U2 page 2)
+        counterpartyBo1: {
+            fullName:        formData.counterpartyBo1Name || '',
+            nricOrPassport:  formData.counterpartyBo1Nric || '',
+            dob:             formData.counterpartyBo1Dob || '',
+            address:         formData.counterpartyBo1Address || '',
+            nationality:     formData.counterpartyBo1Nationality || '',
+            occupation:      formData.counterpartyBo1Occupation || '',
+            idType:          formData.counterpartyBo1IdType || 'NRIC',
+            idOthersDetail:  formData.counterpartyBo1IdOthersDetail || ''
+        },
+        counterpartyBo2: {
+            fullName:        formData.counterpartyBo2Name || '',
+            nricOrPassport:  formData.counterpartyBo2Nric || '',
+            dob:             formData.counterpartyBo2Dob || '',
+            address:         formData.counterpartyBo2Address || '',
+            nationality:     formData.counterpartyBo2Nationality || '',
+            occupation:      formData.counterpartyBo2Occupation || '',
+            idType:          formData.counterpartyBo2IdType || 'NRIC',
+            idOthersDetail:  formData.counterpartyBo2IdOthersDetail || ''
         }
     };
 };

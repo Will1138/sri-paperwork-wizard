@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=u-forms-1"></script>
+    <script src="aml-pdf-coords.js?v=u-forms-2"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -294,6 +294,62 @@
                         s2: Array(29).fill('No'),
                         riskReason: ''
                     },
+
+                    // --- Counterparty Principal (Form U3) — person counterparty acts on behalf of ---
+                    counterpartyPrincipalName: '',
+                    counterpartyPrincipalNric: '',
+                    counterpartyPrincipalDob: '',
+                    counterpartyPrincipalAddress: '',
+                    counterpartyPrincipalNationality: '',
+                    counterpartyPrincipalOccupation: '',
+                    counterpartyPrincipalIdType: 'NRIC',
+                    counterpartyPrincipalIdOthersDetail: '',
+                    counterpartyPrincipalAuthorised: 'Yes',
+
+                    // --- Counterparty Entity (Form U2) — when counterparty is an entity ---
+                    counterpartyEntityName: '',
+                    counterpartyEntityUen: '',
+                    counterpartyEntityDateOfIncorp: '',
+                    counterpartyEntityCountry: 'Singapore',
+                    counterpartyEntityAddress: '',
+                    counterpartyEntityPrincipalAddress: '',
+                    counterpartyEntityPhone: '',
+                    counterpartyEntityEmail: '',
+                    counterpartyEntityMainBusiness: '',
+                    counterpartyEntityType: 'Company',
+                    counterpartyEntityTypeOthersDetail: '',
+                    counterpartyEntityAuthorised: true,
+                    counterpartyEntitySeniorMgmtIsBO: false,
+                    counterpartyEntityP1Designation: '',
+                    counterpartyEntityP1Name: '',
+                    counterpartyEntityP1Nric: '',
+                    counterpartyEntityP1Nationality: '',
+                    counterpartyEntityP1IdType: 'NRIC',
+                    counterpartyEntityP1IdOthersDetail: '',
+                    counterpartyEntityP2Designation: '',
+                    counterpartyEntityP2Name: '',
+                    counterpartyEntityP2Nric: '',
+                    counterpartyEntityP2Nationality: '',
+                    counterpartyEntityP2IdType: 'NRIC',
+                    counterpartyEntityP2IdOthersDetail: '',
+
+                    // --- Counterparty Beneficial Owners 1 & 2 (Form U2 page 2) ---
+                    counterpartyBo1Name: '',
+                    counterpartyBo1Nric: '',
+                    counterpartyBo1Dob: '',
+                    counterpartyBo1Address: '',
+                    counterpartyBo1Nationality: '',
+                    counterpartyBo1Occupation: '',
+                    counterpartyBo1IdType: 'NRIC',
+                    counterpartyBo1IdOthersDetail: '',
+                    counterpartyBo2Name: '',
+                    counterpartyBo2Nric: '',
+                    counterpartyBo2Dob: '',
+                    counterpartyBo2Address: '',
+                    counterpartyBo2Nationality: '',
+                    counterpartyBo2Occupation: '',
+                    counterpartyBo2IdType: 'NRIC',
+                    counterpartyBo2IdOthersDetail: '',
                 }
             );
 
@@ -678,8 +734,8 @@
                 'formC': 'Form C.docx',
                 'formD': 'Form D.docx',
                 'formU1': 'Form U1.pdf',
-                'formU2': 'Form U2.docx',
-                'formU3': 'Form U3.docx',
+                'formU2': 'Form U2.pdf',
+                'formU3': 'Form U3.pdf',
                 'formU4': 'Form U4.docx',
                 'formU5': 'Form U5.pdf',
                 'formU6': 'Form U6.docx',
@@ -2103,6 +2159,330 @@
 
                             React.createElement('p', { className: 'text-xs text-gray-500 mt-2' },
                                 "Your name, CEA number, and SRI details will auto-fill in the " + (formData.role === 'Seller/Landlord' ? 'Landlord' : 'Tenant') + " salesperson column on page 2. The other column stays blank for the co-broke agent.")
+                        ),
+
+                        // --- Counterparty Principal (Form U3) — when counterparty acts on behalf of someone ---
+                        requiredForms.amlkyc.some(f => f.id === 'formU3') && React.createElement(FormSection,
+                            { title: 'Counterparty Principal (person counterparty acts for — for Form U3)' },
+                            React.createElement(SelectField, {
+                                label: 'Is the counterparty authorised to act on behalf of the Individual?',
+                                value: formData.counterpartyPrincipalAuthorised,
+                                onChange: (v) => updateField('counterpartyPrincipalAuthorised', v),
+                                options: [
+                                    { value: 'Yes', label: 'Yes — authorisation in place' },
+                                    { value: 'No',  label: 'No — flagged as concern' }
+                                ]
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.counterpartyPrincipalName,
+                                onChange: (v) => updateField('counterpartyPrincipalName', v),
+                                required: true
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyPrincipalIdType,
+                                onChange: (v) => updateField('counterpartyPrincipalIdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyPrincipalIdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyPrincipalIdOthersDetail,
+                                onChange: (v) => updateField('counterpartyPrincipalIdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.counterpartyPrincipalNric,
+                                onChange: (v) => updateField('counterpartyPrincipalNric', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.counterpartyPrincipalDob,
+                                onChange: (v) => updateField('counterpartyPrincipalDob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Residential Address',
+                                value: formData.counterpartyPrincipalAddress,
+                                onChange: (v) => updateField('counterpartyPrincipalAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyPrincipalNationality,
+                                onChange: (v) => updateField('counterpartyPrincipalNationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.counterpartyPrincipalOccupation,
+                                onChange: (v) => updateField('counterpartyPrincipalOccupation', v)
+                            })
+                        ),
+
+                        // --- Counterparty Entity (Form U2) — when counterparty is an entity ---
+                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                            { title: 'Counterparty Entity (for Form U2)' },
+                            React.createElement(InputField, {
+                                label: 'Entity / Company Name (as per ACRA)',
+                                value: formData.counterpartyEntityName,
+                                onChange: (v) => updateField('counterpartyEntityName', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'UEN / Registration No.',
+                                value: formData.counterpartyEntityUen,
+                                onChange: (v) => updateField('counterpartyEntityUen', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Registered Office Address',
+                                value: formData.counterpartyEntityAddress,
+                                onChange: (v) => updateField('counterpartyEntityAddress', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Principal Address (if different from registered)',
+                                value: formData.counterpartyEntityPrincipalAddress,
+                                onChange: (v) => updateField('counterpartyEntityPrincipalAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Incorporation',
+                                value: formData.counterpartyEntityDateOfIncorp,
+                                onChange: (v) => updateField('counterpartyEntityDateOfIncorp', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Country of Incorporation',
+                                value: formData.counterpartyEntityCountry,
+                                onChange: (v) => updateField('counterpartyEntityCountry', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Telephone',
+                                value: formData.counterpartyEntityPhone,
+                                onChange: (v) => updateField('counterpartyEntityPhone', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Email',
+                                value: formData.counterpartyEntityEmail,
+                                onChange: (v) => updateField('counterpartyEntityEmail', v),
+                                type: 'email'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Main Business Activity',
+                                value: formData.counterpartyEntityMainBusiness,
+                                onChange: (v) => updateField('counterpartyEntityMainBusiness', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'Entity Type',
+                                value: formData.counterpartyEntityType,
+                                onChange: (v) => updateField('counterpartyEntityType', v),
+                                options: [
+                                    { value: 'Company', label: 'Company' },
+                                    { value: 'LimitedPartnership', label: 'Limited Partnership' },
+                                    { value: 'LLP', label: 'Limited Liability Partnership' },
+                                    { value: 'Corporation', label: 'Corporation' },
+                                    { value: 'Trust', label: 'Trust' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyEntityType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify Entity Type',
+                                value: formData.counterpartyEntityTypeOthersDetail,
+                                onChange: (v) => updateField('counterpartyEntityTypeOthersDetail', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'Representative is authorised to act on behalf of the counterparty entity',
+                                checked: formData.counterpartyEntityAuthorised,
+                                onChange: (v) => updateField('counterpartyEntityAuthorised', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'Senior management are the same as the beneficial owners',
+                                checked: formData.counterpartyEntitySeniorMgmtIsBO,
+                                onChange: (v) => updateField('counterpartyEntitySeniorMgmtIsBO', v)
+                            }),
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Senior Management Personnel — Person 1'),
+                            React.createElement(InputField, {
+                                label: 'Designation (e.g. Director)',
+                                value: formData.counterpartyEntityP1Designation,
+                                onChange: (v) => updateField('counterpartyEntityP1Designation', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.counterpartyEntityP1Name,
+                                onChange: (v) => updateField('counterpartyEntityP1Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyEntityP1IdType,
+                                onChange: (v) => updateField('counterpartyEntityP1IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyEntityP1IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyEntityP1IdOthersDetail,
+                                onChange: (v) => updateField('counterpartyEntityP1IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.counterpartyEntityP1Nric,
+                                onChange: (v) => updateField('counterpartyEntityP1Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyEntityP1Nationality,
+                                onChange: (v) => updateField('counterpartyEntityP1Nationality', v)
+                            }),
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Senior Management Personnel — Person 2 (optional)'),
+                            React.createElement(InputField, {
+                                label: 'Designation',
+                                value: formData.counterpartyEntityP2Designation,
+                                onChange: (v) => updateField('counterpartyEntityP2Designation', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.counterpartyEntityP2Name,
+                                onChange: (v) => updateField('counterpartyEntityP2Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyEntityP2IdType,
+                                onChange: (v) => updateField('counterpartyEntityP2IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyEntityP2IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyEntityP2IdOthersDetail,
+                                onChange: (v) => updateField('counterpartyEntityP2IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.counterpartyEntityP2Nric,
+                                onChange: (v) => updateField('counterpartyEntityP2Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyEntityP2Nationality,
+                                onChange: (v) => updateField('counterpartyEntityP2Nationality', v)
+                            })
+                        ),
+
+                        // --- Counterparty Beneficial Owner 1 (Form U2 page 2) ---
+                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                            { title: 'Counterparty Beneficial Owner 1 (for Form U2 page 2)' },
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.counterpartyBo1Name,
+                                onChange: (v) => updateField('counterpartyBo1Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyBo1IdType,
+                                onChange: (v) => updateField('counterpartyBo1IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyBo1IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyBo1IdOthersDetail,
+                                onChange: (v) => updateField('counterpartyBo1IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.counterpartyBo1Nric,
+                                onChange: (v) => updateField('counterpartyBo1Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.counterpartyBo1Dob,
+                                onChange: (v) => updateField('counterpartyBo1Dob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Residential Address',
+                                value: formData.counterpartyBo1Address,
+                                onChange: (v) => updateField('counterpartyBo1Address', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyBo1Nationality,
+                                onChange: (v) => updateField('counterpartyBo1Nationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.counterpartyBo1Occupation,
+                                onChange: (v) => updateField('counterpartyBo1Occupation', v)
+                            })
+                        ),
+
+                        // --- Counterparty Beneficial Owner 2 (Form U2 page 2, optional) ---
+                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                            { title: 'Counterparty Beneficial Owner 2 (optional)' },
+                            React.createElement(InputField, {
+                                label: 'Full Name',
+                                value: formData.counterpartyBo2Name,
+                                onChange: (v) => updateField('counterpartyBo2Name', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterpartyBo2IdType,
+                                onChange: (v) => updateField('counterpartyBo2IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyBo2IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterpartyBo2IdOthersDetail,
+                                onChange: (v) => updateField('counterpartyBo2IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC / Passport No.',
+                                value: formData.counterpartyBo2Nric,
+                                onChange: (v) => updateField('counterpartyBo2Nric', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.counterpartyBo2Dob,
+                                onChange: (v) => updateField('counterpartyBo2Dob', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Residential Address',
+                                value: formData.counterpartyBo2Address,
+                                onChange: (v) => updateField('counterpartyBo2Address', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterpartyBo2Nationality,
+                                onChange: (v) => updateField('counterpartyBo2Nationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.counterpartyBo2Occupation,
+                                onChange: (v) => updateField('counterpartyBo2Occupation', v)
+                            })
                         ),
 
                         // --- Form B Screening Exceptions (tap-to-flag) ---
