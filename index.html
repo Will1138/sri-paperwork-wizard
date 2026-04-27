@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase1-ui-1"></script>
+    <script src="aml-pdf-coords.js?v=u-forms-1"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -286,6 +286,14 @@
                         s2: Array(29).fill('No'),
                         riskReason: ''
                     },
+
+                    // Form U5 (counterparty risk screening) — same shape as formB
+                    formU5: {
+                        showExceptions: false,
+                        s1: ['No','No','No','No','No','No'],
+                        s2: Array(29).fill('No'),
+                        riskReason: ''
+                    },
                 }
             );
 
@@ -307,6 +315,20 @@
                 const arr = [...formData.formB[section]];
                 arr[idx] = value;
                 updateFormB(section, arr);
+            };
+
+            // Same helpers for formU5 (counterparty screening)
+            const updateFormU5 = (key, value) => {
+                setFormData({
+                    type: 'SET_FIELD',
+                    field: 'formU5',
+                    value: { ...formData.formU5, [key]: value }
+                });
+            };
+            const updateFormU5Answer = (section, idx, value) => {
+                const arr = [...formData.formU5[section]];
+                arr[idx] = value;
+                updateFormU5(section, arr);
             };
 
             const updateForm = (formName, checked) => {
@@ -391,35 +413,42 @@
                 }
 
                 // ===== COUNTERPARTY FORMS (Solo transactions only) =====
+                // Counterparty form mapping (matches the actual CEA form titles):
+                //   U1 = Individual particulars (parallel to A1)
+                //   U2 = Entity particulars (parallel to A2/A4)
+                //   U3 = Acting on behalf — individual (parallel to A3)
+                //   U4 = Acting on behalf — entity (parallel to A4)
+                //   U5 = Risk Determination & Screening Checklist (parallel to Form B)
+                //   U6 = Enhanced Due Diligence (parallel to Form C)
                 if (formData.cobroke === 'Solo' && formData.counterpartyType) {
-                    // Individual counterparty
+                    // Individual counterparty (direct)
                     if (formData.counterpartyType === 'Individual' && !formData.counterpartyActingOnBehalf) {
                         forms.push(
                             { id: 'formU1', name: 'Form U1 (Counterparty - Individual Particulars)' },
-                            { id: 'formU2', name: 'Form U2 (Counterparty - Risk Assessment)' }
+                            { id: 'formU5', name: 'Form U5 (Counterparty - Risk Screening Checklist)' }
                         );
                     }
-                    // Individual counterparty acting on behalf
+                    // Individual counterparty acting on behalf of someone
                     else if (formData.counterpartyType === 'Individual' && formData.counterpartyActingOnBehalf) {
                         forms.push(
                             { id: 'formU1', name: 'Form U1 (Counterparty & Principal - Individual Particulars)' },
-                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf)' },
-                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty & Principal)' }
+                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf - Individual)' },
+                            { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty & Principal)' }
                         );
                     }
-                    // Entity counterparty
+                    // Entity counterparty (direct)
                     else if (formData.counterpartyType === 'Entity' && !formData.counterpartyActingOnBehalf) {
                         forms.push(
-                            { id: 'formU5', name: 'Form U5 (Counterparty - Entity Particulars)' },
-                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty Entity)' }
+                            { id: 'formU2', name: 'Form U2 (Counterparty - Entity Particulars)' },
+                            { id: 'formU5', name: 'Form U5 (Counterparty - Risk Screening Checklist)' }
                         );
                     }
-                    // Entity counterparty acting on behalf
+                    // Entity counterparty acting on behalf of someone
                     else if (formData.counterpartyType === 'Entity' && formData.counterpartyActingOnBehalf) {
                         forms.push(
-                            { id: 'formU5', name: 'Form U5 (Counterparty - Entity Particulars)' },
+                            { id: 'formU2', name: 'Form U2 (Counterparty - Entity Particulars)' },
                             { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf)' },
-                            { id: 'formU2', name: 'Form U2 (Risk Assessment - Counterparty Entity)' }
+                            { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty Entity)' }
                         );
                     }
                 }
@@ -652,7 +681,7 @@
                 'formU2': 'Form U2.docx',
                 'formU3': 'Form U3.docx',
                 'formU4': 'Form U4.docx',
-                'formU5': 'Form U5.docx',
+                'formU5': 'Form U5.pdf',
                 'formU6': 'Form U6.docx',
                 // Special
                 'salespersonDeclaration': 'Salesperson Declaration (Sales Transaction $3M and Above)_1627816026.pdf',
@@ -2207,6 +2236,137 @@
                                         onChange: (e) => updateFormB('riskReason', e.target.value),
                                         className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
                                         placeholder: 'Explain the basis for the higher-risk determination — this text fills Page 3 of Form B and triggers ECDD via Form C.'
+                                    })
+                                )
+                            )
+                        ),
+
+                        // --- Form U5 Screening Exceptions (counterparty side) ---
+                        // Same tap-to-flag pattern as Form B but for the counterparty.
+                        // Independent answers — counterparty might be a PEP even when client isn't.
+                        requiredForms.amlkyc.some(f => f.id === 'formU5') && React.createElement(FormSection,
+                            { title: 'Form U5 — Counterparty Screening Exceptions' },
+                            React.createElement('div', {
+                                className: 'rounded-lg border-2 border-green-200 bg-green-50 p-4 text-sm text-green-900 mb-4'
+                            },
+                                React.createElement('p', { className: 'font-semibold' },
+                                    'Default: all 35 counterparty screening checks answered "No" — standard clean transaction.'),
+                                React.createElement('p', { className: 'text-xs mt-1 text-green-800' },
+                                    'Section 1 (6 PEP / sanctions / designated persons questions) and Section 2 (29 red flag indicators) — applied to the unrepresented counterparty.')
+                            ),
+                            React.createElement(CheckboxField, {
+                                label: 'I need to flag a counterparty exception (one or more answers differ from "No")',
+                                checked: formData.formU5.showExceptions,
+                                onChange: (v) => updateFormU5('showExceptions', v)
+                            }),
+                            formData.formU5.showExceptions && React.createElement('div', { className: 'mt-6 space-y-6' },
+                                React.createElement('div', null,
+                                    React.createElement('h4', { className: 'font-semibold text-gray-800 mb-3' },
+                                        'Section 1 — PEP, Sanctions & Designated Persons (6 questions)'),
+                                    React.createElement('div', { className: 'space-y-3' },
+                                        [
+                                            'Q1. Is the counterparty/BO a foreign PEP, family member or close associate of a foreign PEP?',
+                                            'Q2. Is the transaction high-risk? (Refer to red-flag indicators)',
+                                            'Q3. Is the counterparty/BO from a high-risk or other monitored jurisdiction?',
+                                            'Q4. Is the counterparty/BO a designated individual under TSOFA or the UN Act?',
+                                            'Q5. Is the counterparty/BO a designated individual/entity under UNSC sanctions or MAS Notification PSN02?',
+                                            'Q6. Other concerns? (Yes / No / N/A)'
+                                        ].map((qText, i) =>
+                                            React.createElement('div', {
+                                                key: 'u5-s1-' + i,
+                                                className: 'flex items-start gap-3 p-3 rounded border border-gray-200 bg-white'
+                                            },
+                                                React.createElement('p', { className: 'flex-1 text-sm text-gray-700' }, qText),
+                                                React.createElement('div', { className: 'flex gap-2 shrink-0' },
+                                                    ['No', 'Yes'].concat(i === 5 ? ['NA'] : []).map(opt =>
+                                                        React.createElement('button', {
+                                                            key: opt,
+                                                            type: 'button',
+                                                            onClick: () => updateFormU5Answer('s1', i, opt),
+                                                            className: 'px-3 py-1 text-xs font-semibold rounded border-2 ' + (
+                                                                formData.formU5.s1[i] === opt
+                                                                    ? (opt === 'Yes' ? 'bg-red-600 text-white border-red-600' : opt === 'NA' ? 'bg-gray-500 text-white border-gray-500' : 'bg-green-600 text-white border-green-600')
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                                                            )
+                                                        }, opt === 'NA' ? 'N/A' : opt)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('h4', { className: 'font-semibold text-gray-800 mb-3' },
+                                        'Section 2 — Red Flag Indicators (29 questions)'),
+                                    React.createElement('p', { className: 'text-xs text-gray-500 mb-3' },
+                                        'Refer to the printed Form U5 for the full wording of each indicator.'),
+                                    React.createElement('div', { className: 'space-y-2 max-h-96 overflow-y-auto pr-2' },
+                                        [
+                                            'Q1. Negative news / criminal links',
+                                            'Q2. Multiple travel docs / CBI / RBI',
+                                            'Q3. Shell company hiding BO identity',
+                                            'Q4. Overly concerned about AML/CFT',
+                                            'Q5. Resistant to providing BO / source info',
+                                            'Q6. Hesitant to put name on documents',
+                                            'Q7. Different names on OTP / closing docs',
+                                            'Q8. Purchasing in nominee name',
+                                            'Q9. Acting as proxy to conceal BO',
+                                            'Q10. Structuring to hide BO identity',
+                                            'Q11. Last-minute changes to purchasing party',
+                                            'Q12. Different ID docs across purchases',
+                                            'Q13. Suspicious addresses',
+                                            'Q14. Debt significantly higher than value',
+                                            'Q15. Unconcerned about value / location',
+                                            'Q16. Purchasing without inspection',
+                                            'Q17. Multiple properties acquired quickly',
+                                            'Q18. New legal entity with large amounts',
+                                            'Q19. Business activity does not match transaction',
+                                            'Q20. High-end property without professional help',
+                                            'Q21. Cash transaction over S$20,000',
+                                            'Q22. Substantial cash down payment over S$20,000',
+                                            'Q23. Rent paid far in advance (>3 months)',
+                                            'Q24. Unexplained third-party payments',
+                                            'Q25. Transaction value differs from market',
+                                            'Q26. Successive transactions with unusual prices',
+                                            'Q27. Unnecessarily complex legal structures',
+                                            'Q28. Property purchased without a loan',
+                                            'Q29. Transfer within unusually short period'
+                                        ].map((qText, i) =>
+                                            React.createElement('div', {
+                                                key: 'u5-s2-' + i,
+                                                className: 'flex items-start gap-3 p-2 rounded border border-gray-200 bg-white'
+                                            },
+                                                React.createElement('p', { className: 'flex-1 text-xs text-gray-700' }, qText),
+                                                React.createElement('div', { className: 'flex gap-2 shrink-0' },
+                                                    ['No', 'Yes'].map(opt =>
+                                                        React.createElement('button', {
+                                                            key: opt,
+                                                            type: 'button',
+                                                            onClick: () => updateFormU5Answer('s2', i, opt),
+                                                            className: 'px-3 py-1 text-xs font-semibold rounded border-2 ' + (
+                                                                formData.formU5.s2[i] === opt
+                                                                    ? (opt === 'Yes' ? 'bg-red-600 text-white border-red-600' : 'bg-green-600 text-white border-green-600')
+                                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                                                            )
+                                                        }, opt)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+                                (formData.formU5.s1.some(v => v === 'Yes') || formData.formU5.s2.some(v => v === 'Yes')) &&
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' },
+                                        'Reason for higher counterparty risk (required when any answer is Yes)',
+                                        React.createElement('span', { className: 'text-red-500' }, '*')
+                                    ),
+                                    React.createElement('textarea', {
+                                        rows: 4,
+                                        value: formData.formU5.riskReason,
+                                        onChange: (e) => updateFormU5('riskReason', e.target.value),
+                                        className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
+                                        placeholder: 'Explain the basis for the higher-risk determination on the counterparty — this text fills Page 3 of Form U5.'
                                     })
                                 )
                             )

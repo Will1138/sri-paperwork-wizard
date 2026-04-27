@@ -462,6 +462,78 @@ window.AML_FORM_COORDS = {
                 { x: 460.4, y: 193.1, key: 'formB.s2.28', match: 'Yes' }, { x: 500.7, y: 193.7, key: 'formB.s2.28', match: 'No' }
             ]
         }
+    },
+
+    // =================================================
+    // Form U5 — Risk Determination & Screening Checklist (Counterparty side), 3 pages
+    // Same structure as Form B, but for the unrepresented counterparty.
+    // Defaults: every Section 1 / Section 2 answer = 'No' (unless flagged in UI)
+    // =================================================
+    formU5: {
+        pages: 3,
+        text: {
+            1: [
+                { x: 106.7, y: 642.0, key: 'counterparty.fullName' },
+                { x: 383.5, y: 641.3, key: 'counterparty.nricOrPassport' }
+            ],
+            3: [
+                { x:  77.2, y: 580.9, key: 'formU5.riskReason' },
+                { x:  88.4, y: 547.6, key: 'resName' },
+                { x: 294.9, y: 547.6, key: 'resReg' },
+                { x: 164.0, y: 482.5, key: 'estateAgentName' },
+                { x: 163.6, y: 449.4, key: 'dateOfForm' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // Section 1 — Q1..Q5: No (top), Yes (bottom). Q6 has 3 options.
+                { x: 332.7, y: 563.6, key: 'formU5.s1.0', match: 'No'  },
+                { x: 333.3, y: 543.4, key: 'formU5.s1.0', match: 'Yes' },
+                { x: 332.7, y: 501.4, key: 'formU5.s1.1', match: 'No'  },
+                { x: 333.0, y: 480.8, key: 'formU5.s1.1', match: 'Yes' },
+                { x: 332.2, y: 438.9, key: 'formU5.s1.2', match: 'No'  },
+                { x: 332.9, y: 426.6, key: 'formU5.s1.2', match: 'Yes' },
+                { x: 333.1, y: 373.7, key: 'formU5.s1.3', match: 'No'  },
+                { x: 332.9, y: 354.2, key: 'formU5.s1.3', match: 'Yes' },
+                { x: 332.3, y: 304.3, key: 'formU5.s1.4', match: 'No'  },
+                { x: 332.3, y: 284.0, key: 'formU5.s1.4', match: 'Yes' },
+                { x: 332.9, y: 205.1, key: 'formU5.s1.5', match: 'No'  },
+                { x: 332.8, y: 185.8, key: 'formU5.s1.5', match: 'Yes' },
+                { x: 332.5, y: 165.0, key: 'formU5.s1.5', match: 'NA'  }
+            ],
+            2: [
+                // Section 2 — 29 red flag indicators. Yes col x≈460, No col x≈504.
+                { x: 460.7, y: 663.2, key: 'formU5.s2.0',  match: 'Yes' }, { x: 503.8, y: 663.1, key: 'formU5.s2.0',  match: 'No' },
+                { x: 460.9, y: 635.5, key: 'formU5.s2.1',  match: 'Yes' }, { x: 504.0, y: 635.6, key: 'formU5.s2.1',  match: 'No' },
+                { x: 460.8, y: 608.2, key: 'formU5.s2.2',  match: 'Yes' }, { x: 504.0, y: 608.1, key: 'formU5.s2.2',  match: 'No' },
+                { x: 461.0, y: 586.0, key: 'formU5.s2.3',  match: 'Yes' }, { x: 504.3, y: 585.8, key: 'formU5.s2.3',  match: 'No' },
+                { x: 460.8, y: 563.8, key: 'formU5.s2.4',  match: 'Yes' }, { x: 504.0, y: 563.7, key: 'formU5.s2.4',  match: 'No' },
+                { x: 460.9, y: 541.4, key: 'formU5.s2.5',  match: 'Yes' }, { x: 504.2, y: 541.3, key: 'formU5.s2.5',  match: 'No' },
+                { x: 460.3, y: 519.3, key: 'formU5.s2.6',  match: 'Yes' }, { x: 503.6, y: 519.2, key: 'formU5.s2.6',  match: 'No' },
+                { x: 460.6, y: 497.1, key: 'formU5.s2.7',  match: 'Yes' }, { x: 503.9, y: 497.0, key: 'formU5.s2.7',  match: 'No' },
+                { x: 460.7, y: 479.4, key: 'formU5.s2.8',  match: 'Yes' }, { x: 504.0, y: 479.3, key: 'formU5.s2.8',  match: 'No' },
+                { x: 460.8, y: 461.7, key: 'formU5.s2.9',  match: 'Yes' }, { x: 504.1, y: 461.6, key: 'formU5.s2.9',  match: 'No' },
+                { x: 461.0, y: 440.3, key: 'formU5.s2.10', match: 'Yes' }, { x: 504.3, y: 440.2, key: 'formU5.s2.10', match: 'No' },
+                { x: 460.9, y: 422.5, key: 'formU5.s2.11', match: 'Yes' }, { x: 504.2, y: 422.4, key: 'formU5.s2.11', match: 'No' },
+                { x: 461.1, y: 409.7, key: 'formU5.s2.12', match: 'Yes' }, { x: 504.3, y: 409.5, key: 'formU5.s2.12', match: 'No' },
+                { x: 461.1, y: 396.9, key: 'formU5.s2.13', match: 'Yes' }, { x: 504.4, y: 396.8, key: 'formU5.s2.13', match: 'No' },
+                { x: 461.0, y: 384.0, key: 'formU5.s2.14', match: 'Yes' }, { x: 504.3, y: 383.9, key: 'formU5.s2.14', match: 'No' },
+                { x: 460.9, y: 370.7, key: 'formU5.s2.15', match: 'Yes' }, { x: 504.2, y: 370.6, key: 'formU5.s2.15', match: 'No' },
+                { x: 460.6, y: 358.3, key: 'formU5.s2.16', match: 'Yes' }, { x: 503.9, y: 358.2, key: 'formU5.s2.16', match: 'No' },
+                { x: 460.8, y: 345.7, key: 'formU5.s2.17', match: 'Yes' }, { x: 504.1, y: 345.6, key: 'formU5.s2.17', match: 'No' },
+                { x: 460.9, y: 332.9, key: 'formU5.s2.18', match: 'Yes' }, { x: 504.2, y: 332.8, key: 'formU5.s2.18', match: 'No' },
+                { x: 460.9, y: 320.2, key: 'formU5.s2.19', match: 'Yes' }, { x: 504.2, y: 320.0, key: 'formU5.s2.19', match: 'No' },
+                { x: 460.8, y: 307.3, key: 'formU5.s2.20', match: 'Yes' }, { x: 504.1, y: 307.2, key: 'formU5.s2.20', match: 'No' },
+                { x: 460.7, y: 294.0, key: 'formU5.s2.21', match: 'Yes' }, { x: 504.0, y: 293.9, key: 'formU5.s2.21', match: 'No' },
+                { x: 460.5, y: 280.3, key: 'formU5.s2.22', match: 'Yes' }, { x: 503.7, y: 280.2, key: 'formU5.s2.22', match: 'No' },
+                { x: 460.8, y: 267.5, key: 'formU5.s2.23', match: 'Yes' }, { x: 504.1, y: 267.4, key: 'formU5.s2.23', match: 'No' },
+                { x: 460.9, y: 254.6, key: 'formU5.s2.24', match: 'Yes' }, { x: 504.2, y: 254.5, key: 'formU5.s2.24', match: 'No' },
+                { x: 460.9, y: 241.9, key: 'formU5.s2.25', match: 'Yes' }, { x: 504.2, y: 241.8, key: 'formU5.s2.25', match: 'No' },
+                { x: 460.8, y: 229.0, key: 'formU5.s2.26', match: 'Yes' }, { x: 504.1, y: 228.9, key: 'formU5.s2.26', match: 'No' },
+                { x: 460.8, y: 215.7, key: 'formU5.s2.27', match: 'Yes' }, { x: 504.1, y: 215.6, key: 'formU5.s2.27', match: 'No' },
+                { x: 460.5, y: 203.3, key: 'formU5.s2.28', match: 'Yes' }, { x: 503.8, y: 203.2, key: 'formU5.s2.28', match: 'No' }
+            ]
+        }
     }
 };
 
@@ -546,6 +618,20 @@ window.buildAmlFieldData = function(formData, formId) {
         clientAuthorised: (formData.formA4 && formData.formA4.clientAuthorised) || 'Yes'
     };
 
+    // Form U5 — same shape as Form B, but for the unrepresented counterparty side.
+    // Defaults to all-No; only honoured when William taps the "show exceptions" toggle.
+    const formU5Defaults = {
+        s1: ['No', 'No', 'No', 'No', 'No', 'No'],
+        s2: Array(29).fill('No'),
+        riskReason: ''
+    };
+    const formU5Overrides = formData.formU5 || {};
+    const formU5 = formU5Overrides.showExceptions ? {
+        s1: (formU5Overrides.s1 && formU5Overrides.s1.length === 6) ? formU5Overrides.s1 : formU5Defaults.s1,
+        s2: (formU5Overrides.s2 && formU5Overrides.s2.length === 29) ? formU5Overrides.s2 : formU5Defaults.s2,
+        riskReason: formU5Overrides.riskReason || formU5Defaults.riskReason
+    } : formU5Defaults;
+
     return {
         resName:    (formData.agentName || '').toString(),
         resReg:     (formData.ceaRegistration || '').toString(),
@@ -556,6 +642,7 @@ window.buildAmlFieldData = function(formData, formId) {
         repRole: repRole,
         formB: formB,
         formA4: formA4,
+        formU5: formU5,
         // Women's Charter Checklist fields
         leaseStart: formData.leaseStartDate || '',
         leaseEnd:   formData.leaseEndDate || '',
