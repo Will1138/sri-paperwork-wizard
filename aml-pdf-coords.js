@@ -295,6 +295,80 @@ window.AML_FORM_COORDS = {
                 { x:  82.8, y: 427.4, key: 'counterparty.actingOnBehalfCorporate',  match: true }
             ]
         }
+    },
+
+    // =================================================
+    // Form B — AML Risk Determination & Screening Checklist (Client side), 3 pages
+    // Page 1: Name + ID + Section 1 (6 PEP/sanctions Qs, 13 boxes)
+    // Page 2: Section 2 (29 red flag indicators, 58 boxes — Yes col x≈460, No col x≈500)
+    // Page 3: Reasons text + RES name/reg + Estate Agent + Date
+    // Default: every Section 1 / Section 2 answer = 'No' (from buildAmlFieldData)
+    // =================================================
+    formB: {
+        pages: 3,
+        text: {
+            1: [
+                { x: 106.7, y: 651.7, key: 'client.fullName' },
+                { x: 344.3, y: 651.7, key: 'client.nricOrPassport' }
+            ],
+            3: [
+                { x:  78.1, y: 580.0, key: 'formB.riskReason' },
+                { x:  91.3, y: 466.7, key: 'resName' },
+                { x: 303.0, y: 465.8, key: 'resReg' },
+                { x: 164.0, y: 412.0, key: 'estateAgentName' },
+                { x: 163.6, y: 380.0, key: 'dateOfForm' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // Section 1 — Q1..Q5: No (top), Yes (bottom). Q6 has 3 options.
+                { x: 332.7, y: 574.4, key: 'formB.s1.0', match: 'No'  },
+                { x: 332.7, y: 554.5, key: 'formB.s1.0', match: 'Yes' },
+                { x: 332.4, y: 534.4, key: 'formB.s1.1', match: 'No'  },
+                { x: 332.8, y: 513.6, key: 'formB.s1.1', match: 'Yes' },
+                { x: 333.1, y: 493.0, key: 'formB.s1.2', match: 'No'  },
+                { x: 332.7, y: 481.3, key: 'formB.s1.2', match: 'Yes' },
+                { x: 332.7, y: 405.3, key: 'formB.s1.3', match: 'No'  },
+                { x: 333.0, y: 385.6, key: 'formB.s1.3', match: 'Yes' },
+                { x: 332.5, y: 335.9, key: 'formB.s1.4', match: 'No'  },
+                { x: 332.7, y: 316.0, key: 'formB.s1.4', match: 'Yes' },
+                { x: 332.6, y: 276.7, key: 'formB.s1.5', match: 'No'  },
+                { x: 332.7, y: 264.3, key: 'formB.s1.5', match: 'Yes' },
+                { x: 332.8, y: 244.0, key: 'formB.s1.5', match: 'NA'  }
+            ],
+            2: [
+                // Section 2 — 29 red flag indicators. Yes col x≈460, No col x≈500.
+                { x: 461.1, y: 663.2, key: 'formB.s2.0',  match: 'Yes' }, { x: 500.6, y: 663.6, key: 'formB.s2.0',  match: 'No' },
+                { x: 460.5, y: 635.7, key: 'formB.s2.1',  match: 'Yes' }, { x: 500.2, y: 635.6, key: 'formB.s2.1',  match: 'No' },
+                { x: 460.3, y: 607.6, key: 'formB.s2.2',  match: 'Yes' }, { x: 500.6, y: 608.0, key: 'formB.s2.2',  match: 'No' },
+                { x: 460.3, y: 586.1, key: 'formB.s2.3',  match: 'Yes' }, { x: 500.5, y: 585.7, key: 'formB.s2.3',  match: 'No' },
+                { x: 461.0, y: 562.9, key: 'formB.s2.4',  match: 'Yes' }, { x: 500.2, y: 563.7, key: 'formB.s2.4',  match: 'No' },
+                { x: 460.7, y: 541.8, key: 'formB.s2.5',  match: 'Yes' }, { x: 500.4, y: 541.6, key: 'formB.s2.5',  match: 'No' },
+                { x: 460.7, y: 519.2, key: 'formB.s2.6',  match: 'Yes' }, { x: 500.4, y: 519.4, key: 'formB.s2.6',  match: 'No' },
+                { x: 460.8, y: 497.7, key: 'formB.s2.7',  match: 'Yes' }, { x: 500.7, y: 497.2, key: 'formB.s2.7',  match: 'No' },
+                { x: 460.4, y: 480.6, key: 'formB.s2.8',  match: 'Yes' }, { x: 500.3, y: 479.8, key: 'formB.s2.8',  match: 'No' },
+                { x: 460.7, y: 462.2, key: 'formB.s2.9',  match: 'Yes' }, { x: 500.2, y: 462.1, key: 'formB.s2.9',  match: 'No' },
+                { x: 460.5, y: 440.2, key: 'formB.s2.10', match: 'Yes' }, { x: 500.7, y: 440.5, key: 'formB.s2.10', match: 'No' },
+                { x: 460.6, y: 422.8, key: 'formB.s2.11', match: 'Yes' }, { x: 500.4, y: 422.7, key: 'formB.s2.11', match: 'No' },
+                { x: 460.4, y: 409.4, key: 'formB.s2.12', match: 'Yes' }, { x: 500.7, y: 409.3, key: 'formB.s2.12', match: 'No' },
+                { x: 460.9, y: 396.8, key: 'formB.s2.13', match: 'Yes' }, { x: 500.6, y: 396.6, key: 'formB.s2.13', match: 'No' },
+                { x: 460.5, y: 383.3, key: 'formB.s2.14', match: 'Yes' }, { x: 500.6, y: 383.7, key: 'formB.s2.14', match: 'No' },
+                { x: 460.8, y: 370.2, key: 'formB.s2.15', match: 'Yes' }, { x: 500.5, y: 370.5, key: 'formB.s2.15', match: 'No' },
+                { x: 460.4, y: 357.4, key: 'formB.s2.16', match: 'Yes' }, { x: 500.3, y: 357.7, key: 'formB.s2.16', match: 'No' },
+                { x: 460.5, y: 344.6, key: 'formB.s2.17', match: 'Yes' }, { x: 500.7, y: 345.2, key: 'formB.s2.17', match: 'No' },
+                { x: 460.6, y: 327.6, key: 'formB.s2.18', match: 'Yes' }, { x: 500.8, y: 327.8, key: 'formB.s2.18', match: 'No' },
+                { x: 460.7, y: 310.1, key: 'formB.s2.19', match: 'Yes' }, { x: 500.4, y: 310.0, key: 'formB.s2.19', match: 'No' },
+                { x: 460.5, y: 296.8, key: 'formB.s2.20', match: 'Yes' }, { x: 500.8, y: 296.7, key: 'formB.s2.20', match: 'No' },
+                { x: 460.9, y: 284.2, key: 'formB.s2.21', match: 'Yes' }, { x: 500.7, y: 283.9, key: 'formB.s2.21', match: 'No' },
+                { x: 460.6, y: 270.6, key: 'formB.s2.22', match: 'Yes' }, { x: 500.6, y: 271.1, key: 'formB.s2.22', match: 'No' },
+                { x: 460.9, y: 257.6, key: 'formB.s2.23', match: 'Yes' }, { x: 500.6, y: 257.9, key: 'formB.s2.23', match: 'No' },
+                { x: 460.5, y: 244.7, key: 'formB.s2.24', match: 'Yes' }, { x: 500.4, y: 245.0, key: 'formB.s2.24', match: 'No' },
+                { x: 460.6, y: 232.0, key: 'formB.s2.25', match: 'Yes' }, { x: 500.8, y: 232.6, key: 'formB.s2.25', match: 'No' },
+                { x: 460.7, y: 218.7, key: 'formB.s2.26', match: 'Yes' }, { x: 500.4, y: 219.0, key: 'formB.s2.26', match: 'No' },
+                { x: 460.4, y: 205.8, key: 'formB.s2.27', match: 'Yes' }, { x: 500.2, y: 206.1, key: 'formB.s2.27', match: 'No' },
+                { x: 460.4, y: 193.1, key: 'formB.s2.28', match: 'Yes' }, { x: 500.7, y: 193.7, key: 'formB.s2.28', match: 'No' }
+            ]
+        }
     }
 };
 
@@ -353,13 +427,31 @@ window.buildAmlFieldData = function(formData, formId) {
     const wcLandlordName = repsLandlord ? (formData.clientName || '') : (formData.counterpartyName || '');
     const wcTenantName   = repsTenant   ? (formData.clientName || '') : (formData.counterpartyName || '');
 
+    // Form B defaults — every Section 1 (PEP/sanctions) and Section 2
+    // (red flag) answer defaults to 'No'. William can override individual
+    // answers in a future Step 5 sub-block; for now this matches what he'd
+    // tick manually for a clean transaction.
+    const formBDefaults = {
+        s1: ['No', 'No', 'No', 'No', 'No', 'No'],   // 6 PEP/sanctions Qs (Q6 may also be 'NA')
+        s2: Array(29).fill('No'),                    // 29 red flag indicators
+        riskReason: ''                                // Filled only when any answer is Yes
+    };
+    const formBOverrides = formData.formB || {};
+    const formB = {
+        s1: (formBOverrides.s1 && formBOverrides.s1.length === 6) ? formBOverrides.s1 : formBDefaults.s1,
+        s2: (formBOverrides.s2 && formBOverrides.s2.length === 29) ? formBOverrides.s2 : formBDefaults.s2,
+        riskReason: formBOverrides.riskReason || formBDefaults.riskReason
+    };
+
     return {
         resName:    (formData.agentName || '').toString(),
         resReg:     (formData.ceaRegistration || '').toString(),
+        estateAgentName: 'SRI PTE LTD',
         dateOfForm: todayDate,
         propertyAddress: formData.propertyAddress || '',
         propertyKind: propertyKind,
         repRole: repRole,
+        formB: formB,
         // Women's Charter Checklist fields
         leaseStart: formData.leaseStartDate || '',
         leaseEnd:   formData.leaseEndDate || '',
