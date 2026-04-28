@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase4-joint"></script>
+    <script src="aml-pdf-coords.js?v=phase4b-joint-cp"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -194,6 +194,10 @@
                     counterpartyType: null, // "Individual" or "Entity" (only if Solo)
                     counterpartyActingOnBehalf: false,
                     counterpartyPrincipalType: '',  // 'Individual' or 'Entity' — drives U3 vs U4
+                    // Joint-counterparty support: e.g. joint landlords or joint tenants on the
+                    // other side. Forms U1 and U5 generate per counterparty when this is on.
+                    // Only meaningful when counterpartyType === 'Individual' + cobroke === 'Solo'.
+                    hasJointCounterparty: false,
                     generateFormD: false,            // Manual trigger: opt in for ongoing review
                     selectedForms: {},
                     thresholdExceeded: false,
@@ -234,6 +238,16 @@
                     counterpartyNRIC: '',
                     counterpartyAddress: '',
                     counterpartyContact: '',
+                    // Counterparty 2 (joint counterparty) — only used when hasJointCounterparty is true.
+                    counterparty2Name: '',
+                    counterparty2NRIC: '',
+                    counterparty2Address: '',
+                    counterparty2Contact: '',
+                    counterparty2Nationality: '',
+                    counterparty2DOB: '',
+                    counterparty2Occupation: '',
+                    counterparty2IdType: 'NRIC',
+                    counterparty2IdOthersDetail: '',
                     cobrokeAgentName: '',
                     cobrokeAgentCEA: '',
                     cobrokeAgentMobile: '',
@@ -749,17 +763,29 @@
                     // Individual counterparty (direct)
                     if (formData.counterpartyType === 'Individual' && !formData.counterpartyActingOnBehalf) {
                         forms.push(
-                            { id: 'formU1', name: 'Form U1 (Counterparty - Individual Particulars)' },
-                            { id: 'formU5', name: 'Form U5 (Counterparty - Risk Screening Checklist)' }
+                            { id: 'formU1', name: 'Form U1 (Counterparty 1 - Individual Particulars)' },
+                            { id: 'formU5', name: 'Form U5 (Counterparty 1 - Risk Screening)' }
                         );
+                        if (formData.hasJointCounterparty) {
+                            forms.push(
+                                { id: 'formU1_counterparty2', name: 'Form U1 (Counterparty 2 - Individual Particulars)' },
+                                { id: 'formU5_counterparty2', name: 'Form U5 (Counterparty 2 - Risk Screening)' }
+                            );
+                        }
                     }
                     // Individual counterparty acting on behalf of someone
                     else if (formData.counterpartyType === 'Individual' && formData.counterpartyActingOnBehalf) {
                         forms.push(
-                            { id: 'formU1', name: 'Form U1 (Counterparty & Principal - Individual Particulars)' },
+                            { id: 'formU1', name: 'Form U1 (Counterparty 1 & Principal - Individual Particulars)' },
                             principalForm,
-                            { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty & Principal)' }
+                            { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty 1 & Principal)' }
                         );
+                        if (formData.hasJointCounterparty) {
+                            forms.push(
+                                { id: 'formU1_counterparty2', name: 'Form U1 (Counterparty 2 - Individual Particulars)' },
+                                { id: 'formU5_counterparty2', name: 'Form U5 (Counterparty 2 - Risk Screening)' }
+                            );
+                        }
                     }
                     // Entity counterparty (direct)
                     else if (formData.counterpartyType === 'Entity' && !formData.counterpartyActingOnBehalf) {
@@ -942,6 +968,7 @@
                     }
                     if (formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual') {
                         if (!formData.counterpartyName || !formData.counterpartyNRIC) return false;
+                        if (formData.hasJointCounterparty && (!formData.counterparty2Name || !formData.counterparty2NRIC)) return false;
                     }
                     return true;
                 }
@@ -1908,6 +1935,18 @@
                                 })
                             )
                         ),
+                        // Joint counterparty toggle — for cases like joint landlords or
+                        // joint tenants on the other side. Only meaningful for Individual.
+                        formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' &&
+                        React.createElement(FormSection, { title: '10b. Joint Counterparty?' },
+                            React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
+                                'Are there two individuals on the other side (e.g. joint landlords, joint tenants, joint sellers, joint buyers)? When ticked, Forms U1 and U5 will be generated separately for each.'),
+                            React.createElement(CheckboxField, {
+                                label: 'Yes, two counterparties — generate forms for both',
+                                checked: formData.hasJointCounterparty,
+                                onChange: (v) => updateField('hasJointCounterparty', v)
+                            })
+                        ),
                         // Drill-down: when counterparty acts on behalf, ask whether the principal
                         // is an individual (→ Form U3) or another entity (→ Form U4).
                         formData.cobroke === 'Solo' && formData.counterpartyType && formData.counterpartyActingOnBehalf &&
@@ -2175,7 +2214,8 @@
                                 })
                             ]
                         ),
-                        formData.cobroke === 'Solo' && React.createElement(FormSection, { title: 'Counterparty Details' },
+                        formData.cobroke === 'Solo' && React.createElement(FormSection,
+                            { title: formData.hasJointCounterparty ? 'Counterparty 1 Details' : 'Counterparty Details' },
                             React.createElement(InputField, {
                                 label: 'Name',
                                 value: formData.counterpartyName,
@@ -2195,6 +2235,31 @@
                                 label: 'Contact Number',
                                 value: formData.counterpartyContact,
                                 onChange: (v) => updateField('counterpartyContact', v)
+                            })
+                        ),
+                        // Counterparty 2 — joint counterparty (e.g. joint landlords/tenants)
+                        formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && formData.hasJointCounterparty &&
+                        React.createElement(FormSection, { title: 'Counterparty 2 Details (Joint)' },
+                            React.createElement(InputField, {
+                                label: 'Name',
+                                value: formData.counterparty2Name,
+                                onChange: (v) => updateField('counterparty2Name', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC/Passport No.',
+                                value: formData.counterparty2NRIC,
+                                onChange: (v) => updateField('counterparty2NRIC', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Address',
+                                value: formData.counterparty2Address,
+                                onChange: (v) => updateField('counterparty2Address', v),
+                                placeholder: 'Same as Counterparty 1 if shared'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Contact Number',
+                                value: formData.counterparty2Contact,
+                                onChange: (v) => updateField('counterparty2Contact', v)
                             })
                         ),
                         formData.cobroke === 'Cobroke' && React.createElement(FormSection, { title: 'Co-Broke Agent Details' },
@@ -2587,7 +2652,8 @@
                         ),
 
                         // --- Counterparty AML Block (U1) ---
-                        onAmlTab('counterparty') && formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && React.createElement(FormSection, { title: 'Counterparty KYC (Individual — for Form U1)' },
+                        onAmlTab('counterparty') && formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && React.createElement(FormSection,
+                            { title: formData.hasJointCounterparty ? 'Counterparty 1 KYC (Individual — for Form U1)' : 'Counterparty KYC (Individual — for Form U1)' },
                             React.createElement(SelectField, {
                                 label: 'ID Type',
                                 value: formData.counterpartyIdType,
@@ -2619,6 +2685,44 @@
                                 label: 'Occupation',
                                 value: formData.counterpartyOccupation,
                                 onChange: (v) => updateField('counterpartyOccupation', v)
+                            })
+                        ),
+
+                        // --- Counterparty 2 KYC (joint counterparty, Individual only) ---
+                        onAmlTab('counterparty') && formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && formData.hasJointCounterparty &&
+                        React.createElement(FormSection,
+                            { title: 'Counterparty 2 KYC (Joint — for Form U1, second copy)' },
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.counterparty2IdType,
+                                onChange: (v) => updateField('counterparty2IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterparty2IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.counterparty2IdOthersDetail,
+                                onChange: (v) => updateField('counterparty2IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.counterparty2DOB,
+                                onChange: (v) => updateField('counterparty2DOB', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.counterparty2Nationality,
+                                onChange: (v) => updateField('counterparty2Nationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.counterparty2Occupation,
+                                onChange: (v) => updateField('counterparty2Occupation', v)
                             })
                         ),
 

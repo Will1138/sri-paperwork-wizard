@@ -1013,6 +1013,18 @@ window.buildAmlFieldData = function(formData, formId) {
     const clientIdType      = isClient2 ? (formData.client2IdType || 'NRIC')   : (formData.clientIdType || 'NRIC');
     const clientIdOthers    = isClient2 ? (formData.client2IdOthersDetail || '') : (formData.clientIdOthersDetail || '');
 
+    // Joint-counterparty support: same pattern for the other side. Forms U1
+    // and U5 with `_counterparty2` suffix read from counterparty2* state.
+    const isCounter2  = /_counterparty2$/.test(formId || '');
+    const cpName        = isCounter2 ? (formData.counterparty2Name || '')         : (formData.counterpartyName || '');
+    const cpNRIC        = isCounter2 ? (formData.counterparty2NRIC || '')         : (formData.counterpartyNRIC || '');
+    const cpDob         = isCounter2 ? (formData.counterparty2DOB || '')          : (formData.counterpartyDob || '');
+    const cpAddress     = isCounter2 ? (formData.counterparty2Address || '')      : (formData.counterpartyAddress || '');
+    const cpNationality = isCounter2 ? (formData.counterparty2Nationality || '')  : (formData.counterpartyNationality || '');
+    const cpOccupation  = isCounter2 ? (formData.counterparty2Occupation || '')   : (formData.counterpartyOccupation || '');
+    const cpIdType      = isCounter2 ? (formData.counterparty2IdType || 'NRIC')   : (formData.counterpartyIdType || 'NRIC');
+    const cpIdOthers    = isCounter2 ? (formData.counterparty2IdOthersDetail || '') : (formData.counterpartyIdOthersDetail || '');
+
     // Property kind for the AML form checkbox row.
     // IMPORTANT: we use `formData.propertyCategory` which is asked explicitly
     // in Step 5 (HDB / Condo / Landed / Others). DO NOT infer this from
@@ -1210,14 +1222,16 @@ window.buildAmlFieldData = function(formData, formId) {
         },
 
         counterparty: {
-            fullName:        formData.counterpartyName || '',
-            nricOrPassport:  formData.counterpartyNRIC || '',
-            dob:             formData.counterpartyDob || '',
-            address:         formData.counterpartyAddress || '',
-            nationality:     formData.counterpartyNationality || '',
-            occupation:      formData.counterpartyOccupation || '',
-            idType:          formData.counterpartyIdType || 'NRIC',
-            idOthersDetail:  formData.counterpartyIdOthersDetail || '',
+            // Driven by counterparty* (or counterparty2* for joint-counterparty
+            // copies) depending on the form id suffix — see top of this function.
+            fullName:        cpName,
+            nricOrPassport:  cpNRIC,
+            dob:             cpDob,
+            address:         cpAddress,
+            nationality:     cpNationality,
+            occupation:      cpOccupation,
+            idType:          cpIdType,
+            idOthersDetail:  cpIdOthers,
             propertyOthersDetail: formData.counterpartyPropertyOthersDetail || '',
             role:            flipRole[formData.role],
             actingForSelf:            counterActingSelf,
