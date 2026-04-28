@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=u-forms-2"></script>
+    <script src="aml-pdf-coords.js?v=phase4-1"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -350,6 +350,99 @@
                     counterpartyBo2Occupation: '',
                     counterpartyBo2IdType: 'NRIC',
                     counterpartyBo2IdOthersDetail: '',
+
+                    // --- Form C / U6 (ECDD) — same shape, two instances ---
+                    formC: {
+                        purpose: '', purposeOthersDetail: '',
+                        purchasePrice: '', monthlyRental: '', transactionAmount: '',
+                        bankStatementMonths: '',
+                        fundSources: [], fundSourcesOthersDetail: '',
+                        fundLoanInstitution: '',
+                        fundSupportingDocs: [], fundSupportingDocsOthersDetail: '',
+                        wealthNetWorth: '',
+                        wealthSources: [], wealthSourcesOthersDetail: '',
+                        wealthBusinessName: '', wealthInvestmentType: '',
+                        wealthSupportingDocs: [], wealthSupportingDocsOthersDetail: '',
+                        recommendation: 'Proceed',
+                        highRiskBasis: '', proceedReasons: ''
+                    },
+                    formU6: {
+                        purpose: '', purposeOthersDetail: '',
+                        purchasePrice: '', monthlyRental: '', transactionAmount: '',
+                        bankStatementMonths: '',
+                        fundSources: [], fundSourcesOthersDetail: '',
+                        fundLoanInstitution: '',
+                        fundSupportingDocs: [], fundSupportingDocsOthersDetail: '',
+                        wealthNetWorth: '',
+                        wealthSources: [], wealthSourcesOthersDetail: '',
+                        wealthBusinessName: '', wealthInvestmentType: '',
+                        wealthSupportingDocs: [], wealthSupportingDocsOthersDetail: '',
+                        recommendation: 'Proceed',
+                        highRiskBasis: '', proceedReasons: ''
+                    },
+
+                    // --- Form D (Ongoing DD) ---
+                    formD: {
+                        individualBOs: '', entityBOs: '',
+                        relationshipNature: '', relationshipDate: '', transactionFrequency: '',
+                        reviewFrequency: '', lastReviewDate: '', nextReviewDue: '',
+                        riskLevelReasons: '',
+                        docsCurrent: 'Yes',
+                        changedDetails: [], changeOthersDetail: '',
+                        copyObtained: false,
+                        transactionsConsistent: 'Yes',
+                        unusualPatterns: '', actionsTaken: ''
+                    },
+
+                    // --- Counterparty Principal Entity (Form U4) ---
+                    counterpartyPrincipalEntityName: '',
+                    counterpartyPrincipalEntityUen: '',
+                    counterpartyPrincipalEntityDateOfIncorp: '',
+                    counterpartyPrincipalEntityCountry: 'Singapore',
+                    counterpartyPrincipalEntityAddress: '',
+                    counterpartyPrincipalEntityPrincipalAddress: '',
+                    counterpartyPrincipalEntityPhone: '',
+                    counterpartyPrincipalEntityEmail: '',
+                    counterpartyPrincipalEntityMainBusiness: '',
+                    counterpartyPrincipalEntityType: 'Company',
+                    counterpartyPrincipalEntityTypeOthersDetail: '',
+                    counterpartyPrincipalEntityAuthorised: true,
+                    counterpartyPrincipalEntityP1Designation: '',
+                    counterpartyPrincipalEntityP1Name: '',
+                    counterpartyPrincipalEntityP1Nric: '',
+                    counterpartyPrincipalEntityP1Nationality: '',
+                    counterpartyPrincipalEntityP1IdType: 'NRIC',
+                    counterpartyPrincipalEntityP1IdOthersDetail: '',
+                    counterpartyPrincipalEntityP2Designation: '',
+                    counterpartyPrincipalEntityP2Name: '',
+                    counterpartyPrincipalEntityP2Nric: '',
+                    counterpartyPrincipalEntityP2Nationality: '',
+                    counterpartyPrincipalEntityP2IdType: 'NRIC',
+                    counterpartyPrincipalEntityP2IdOthersDetail: '',
+                    counterpartyPrincipalEntityP3Designation: '',
+                    counterpartyPrincipalEntityP3Name: '',
+                    counterpartyPrincipalEntityP3Nric: '',
+                    counterpartyPrincipalEntityP3Nationality: '',
+                    counterpartyPrincipalEntityP3IdType: 'NRIC',
+                    counterpartyPrincipalEntityP3IdOthersDetail: '',
+
+                    // Counterparty Principal Entity BOs (Form U4 page 2)
+                    counterpartyPrincipalBo1Name: '',
+                    counterpartyPrincipalBo1Nric: '',
+                    counterpartyPrincipalBo1Dob: '',
+                    counterpartyPrincipalBo1Address: '',
+                    counterpartyPrincipalBo1Nationality: '',
+                    counterpartyPrincipalBo1Occupation: '',
+                    counterpartyPrincipalBo1IdType: 'NRIC',
+                    counterpartyPrincipalBo1IdOthersDetail: '',
+                    counterpartyPrincipalBo2Name: '',
+                    counterpartyPrincipalBo2Nric: '',
+                    counterpartyPrincipalBo2Dob: '',
+                    counterpartyPrincipalBo2Address: '',
+                    counterpartyPrincipalBo2Nationality: '',
+                    counterpartyPrincipalBo2Occupation: '',
+                    counterpartyPrincipalBo2IdType: 'NRIC',
+                    counterpartyPrincipalBo2IdOthersDetail: '',
                 }
             );
 
@@ -731,14 +824,14 @@
                 'formA3': 'Form A3.pdf',
                 'formA4': 'Form A4.pdf',
                 'formB': 'Form B.pdf',
-                'formC': 'Form C.docx',
-                'formD': 'Form D.docx',
+                'formC': 'Form C.pdf',
+                'formD': 'Form D.pdf',
                 'formU1': 'Form U1.pdf',
                 'formU2': 'Form U2.pdf',
                 'formU3': 'Form U3.pdf',
-                'formU4': 'Form U4.docx',
+                'formU4': 'Form U4.pdf',
                 'formU5': 'Form U5.pdf',
-                'formU6': 'Form U6.docx',
+                'formU6': 'Form U6.pdf',
                 // Special
                 'salespersonDeclaration': 'Salesperson Declaration (Sales Transaction $3M and Above)_1627816026.pdf',
                 'womensCharter': "Women's Charter Checklist for Lease of Residential Properties.pdf",
@@ -1251,8 +1344,14 @@
                         for (const box of coords.checkboxes[pageIdxStr]) {
                             const value = window.amlGetValue(data, box.key);
                             let shouldTick;
-                            if (box.match !== undefined) shouldTick = (value === box.match);
-                            else                          shouldTick = Boolean(value);
+                            if (box.match !== undefined) {
+                                // Arrays support multi-select tick patterns (e.g. source-of-funds
+                                // checkbox lists where several can be ticked at once).
+                                if (Array.isArray(value)) shouldTick = value.includes(box.match);
+                                else                       shouldTick = (value === box.match);
+                            } else {
+                                shouldTick = Boolean(value);
+                            }
                             if (!shouldTick) continue;
                             try {
                                 page.drawText('X', {

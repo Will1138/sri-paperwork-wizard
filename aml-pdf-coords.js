@@ -632,6 +632,321 @@ window.AML_FORM_COORDS = {
     },
 
     // =================================================
+    // Form U4 — Particulars of Legal Person the Counterparty is Acting on Behalf Of, 2 pages
+    // Parallel to Form A4 but for the counterparty side.
+    // Page 1: Entity (Section 1) + Senior Management Persons 1, 2, 3 (Section 2)
+    // Page 2: Beneficial Owners 1 & 2 (Section 3)
+    // =================================================
+    formU4: {
+        pages: 2,
+        text: {
+            1: [
+                // Section 1 — Entity details
+                { x:  79.2, y: 609.0, key: 'counterpartyPrincipalEntity.name' },
+                { x: 189.2, y: 586.7, key: 'counterpartyPrincipalEntity.registeredAddress' },
+                { x:  76.7, y: 564.1, key: 'counterpartyPrincipalEntity.principalAddress' },
+                { x: 161.4, y: 544.4, key: 'counterpartyPrincipalEntity.phone' },
+                { x: 358.9, y: 545.6, key: 'counterpartyPrincipalEntity.email' },
+                { x: 244.4, y: 523.4, key: 'counterpartyPrincipalEntity.uen' },
+                { x: 465.4, y: 523.2, key: 'counterpartyPrincipalEntity.dateOfIncorp' },
+                { x: 277.8, y: 501.5, key: 'counterpartyPrincipalEntity.country' },
+                { x: 174.4, y: 482.8, key: 'counterpartyPrincipalEntity.mainBusiness' },
+                { x: 280.8, y: 442.3, key: 'counterpartyPrincipalEntity.typeOthersDetail' },
+                // Section 2 — Senior Management Person 1
+                { x: 179.6, y: 379.1, key: 'counterpartyPrincipalEntity.p1Designation' },
+                { x: 225.0, y: 360.4, key: 'counterpartyPrincipalEntity.p1Name' },
+                { x: 344.0, y: 323.4, key: 'counterpartyPrincipalEntity.p1IdOthersDetail' },
+                { x: 201.3, y: 304.9, key: 'counterpartyPrincipalEntity.p1Nric' },
+                { x: 346.7, y: 304.2, key: 'counterpartyPrincipalEntity.p1Nationality' },
+                // Section 2 — Senior Management Person 2
+                { x: 179.6, y: 285.5, key: 'counterpartyPrincipalEntity.p2Designation' },
+                { x: 225.0, y: 266.8, key: 'counterpartyPrincipalEntity.p2Name' },
+                { x: 344.0, y: 229.8, key: 'counterpartyPrincipalEntity.p2IdOthersDetail' },
+                { x: 203.2, y: 210.7, key: 'counterpartyPrincipalEntity.p2Nric' },
+                { x: 346.7, y: 210.6, key: 'counterpartyPrincipalEntity.p2Nationality' },
+                // Section 2 — Senior Management Person 3
+                { x: 179.6, y: 191.9, key: 'counterpartyPrincipalEntity.p3Designation' },
+                { x: 225.0, y: 173.2, key: 'counterpartyPrincipalEntity.p3Name' },
+                { x: 344.0, y: 136.2, key: 'counterpartyPrincipalEntity.p3IdOthersDetail' },
+                { x: 203.2, y: 117.3, key: 'counterpartyPrincipalEntity.p3Nric' },
+                { x: 346.7, y: 117.0, key: 'counterpartyPrincipalEntity.p3Nationality' }
+            ],
+            2: [
+                // Section 3 — Beneficial Owner 1
+                { x: 225.2, y: 627.2, key: 'counterpartyPrincipalBo1.fullName' },
+                { x: 344.3, y: 589.8, key: 'counterpartyPrincipalBo1.idOthersDetail' },
+                { x: 166.0, y: 570.8, key: 'counterpartyPrincipalBo1.address' },
+                { x: 202.0, y: 552.1, key: 'counterpartyPrincipalBo1.nricOrPassport' },
+                { x: 344.8, y: 552.4, key: 'counterpartyPrincipalBo1.dob' },
+                { x: 129.1, y: 531.7, key: 'counterpartyPrincipalBo1.nationality' },
+                { x: 346.7, y: 533.6, key: 'counterpartyPrincipalBo1.occupation' },
+                // Section 3 — Beneficial Owner 2
+                { x: 225.0, y: 495.7, key: 'counterpartyPrincipalBo2.fullName' },
+                { x: 344.0, y: 458.8, key: 'counterpartyPrincipalBo2.idOthersDetail' },
+                { x: 166.0, y: 439.8, key: 'counterpartyPrincipalBo2.address' },
+                { x: 204.6, y: 419.8, key: 'counterpartyPrincipalBo2.nricOrPassport' },
+                { x: 344.8, y: 420.8, key: 'counterpartyPrincipalBo2.dob' },
+                { x: 129.1, y: 402.9, key: 'counterpartyPrincipalBo2.nationality' },
+                { x: 346.9, y: 402.6, key: 'counterpartyPrincipalBo2.occupation' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // "Is the UCP authorised to act on behalf of the Legal Person?" Yes/No
+                { x: 332.5, y: 667.8, key: 'counterpartyPrincipalEntity.authorised', match: true  },
+                { x: 364.6, y: 668.0, key: 'counterpartyPrincipalEntity.authorised', match: false },
+                // Entity type — top row (LP / LLP / Company)
+                { x: 225.0, y: 463.8, key: 'counterpartyPrincipalEntity.type', match: 'LimitedPartnership' },
+                { x: 318.4, y: 463.5, key: 'counterpartyPrincipalEntity.type', match: 'LLP' },
+                { x: 442.4, y: 463.3, key: 'counterpartyPrincipalEntity.type', match: 'Company' },
+                // Entity type — bottom row (Corp / Trust / Others)
+                { x:  83.2, y: 443.0, key: 'counterpartyPrincipalEntity.type', match: 'Corporation' },
+                { x: 147.9, y: 443.3, key: 'counterpartyPrincipalEntity.type', match: 'Trust' },
+                { x: 184.6, y: 443.1, key: 'counterpartyPrincipalEntity.type', match: 'Others' },
+                // Person 1 ID type
+                { x:  81.5, y: 323.3, key: 'counterpartyPrincipalEntity.p1IdType', match: 'NRIC' },
+                { x: 143.7, y: 323.4, key: 'counterpartyPrincipalEntity.p1IdType', match: 'Passport' },
+                { x: 191.8, y: 323.4, key: 'counterpartyPrincipalEntity.p1IdType', match: 'WorkPermit' },
+                { x: 253.1, y: 323.1, key: 'counterpartyPrincipalEntity.p1IdType', match: 'Others' },
+                // Person 2 ID type
+                { x:  81.6, y: 229.8, key: 'counterpartyPrincipalEntity.p2IdType', match: 'NRIC' },
+                { x: 143.6, y: 229.5, key: 'counterpartyPrincipalEntity.p2IdType', match: 'Passport' },
+                { x: 191.9, y: 230.2, key: 'counterpartyPrincipalEntity.p2IdType', match: 'WorkPermit' },
+                { x: 253.3, y: 229.8, key: 'counterpartyPrincipalEntity.p2IdType', match: 'Others' },
+                // Person 3 ID type
+                { x:  81.6, y: 136.1, key: 'counterpartyPrincipalEntity.p3IdType', match: 'NRIC' },
+                { x: 143.7, y: 136.2, key: 'counterpartyPrincipalEntity.p3IdType', match: 'Passport' },
+                { x: 191.9, y: 136.0, key: 'counterpartyPrincipalEntity.p3IdType', match: 'WorkPermit' },
+                { x: 253.0, y: 136.0, key: 'counterpartyPrincipalEntity.p3IdType', match: 'Others' }
+            ],
+            2: [
+                // BO1 ID type
+                { x:  81.6, y: 590.3, key: 'counterpartyPrincipalBo1.idType', match: 'NRIC' },
+                { x: 143.6, y: 590.5, key: 'counterpartyPrincipalBo1.idType', match: 'Passport' },
+                { x: 191.5, y: 590.2, key: 'counterpartyPrincipalBo1.idType', match: 'WorkPermit' },
+                { x: 253.0, y: 590.3, key: 'counterpartyPrincipalBo1.idType', match: 'Others' },
+                // BO2 ID type
+                { x:  81.9, y: 459.1, key: 'counterpartyPrincipalBo2.idType', match: 'NRIC' },
+                { x: 143.6, y: 458.9, key: 'counterpartyPrincipalBo2.idType', match: 'Passport' },
+                { x: 191.6, y: 458.8, key: 'counterpartyPrincipalBo2.idType', match: 'WorkPermit' },
+                { x: 253.0, y: 459.3, key: 'counterpartyPrincipalBo2.idType', match: 'Others' }
+            ]
+        }
+    },
+
+    // =================================================
+    // Form C — Enhanced Customer Due Diligence (Client side), 2 pages
+    // Triggered when Form B screening flags higher risk.
+    // Page 1: Name+ID + Section A (transaction) + Section B (source of funds) + Section C (source of wealth)
+    // Page 2: Section D (RES Recommendation)
+    // =================================================
+    formC: {
+        pages: 2,
+        text: {
+            1: [
+                { x: 126.6, y: 679.8, key: 'client.fullName' },
+                { x: 416.8, y: 679.8, key: 'client.nricOrPassport' },
+                { x: 180.9, y: 637.1, key: 'propertyAddress' },
+                { x: 191.5, y: 615.1, key: 'formC.purchasePrice' },
+                { x: 413.6, y: 615.1, key: 'formC.monthlyRental' },
+                { x: 435.0, y: 592.0, key: 'formC.purposeOthersDetail' },
+                { x: 326.0, y: 569.6, key: 'formC.transactionAmount' },          // T7 (was unsure but Section B header)
+                { x: 114.9, y: 547.7, key: 'formC.transactionAmount' },          // Total Transaction Amount S$
+                { x: 426.6, y: 545.2, key: 'formC.bankStatementMonths' },        // months
+                { x: 208.4, y: 474.6, key: 'formC.fundLoanInstitution' },        // Loan: Bank/Institution
+                { x: 362.9, y: 461.5, key: 'formC.fundSupportingDocsOthersDetail' },
+                { x: 210.8, y: 436.9, key: 'formC.fundSourcesOthersDetail' },
+                { x: 114.2, y: 392.6, key: 'formC.wealthNetWorth' },
+                { x: 150.0, y: 358.4, key: 'formC.wealthBusinessName' },
+                { x: 196.5, y: 333.7, key: 'formC.wealthInvestmentType' },
+                { x: 361.9, y: 329.0, key: 'formC.wealthSupportingDocsOthersDetail' },
+                { x: 213.8, y: 296.6, key: 'formC.wealthSourcesOthersDetail' }
+            ],
+            2: [
+                { x: 217.7, y: 611.1, key: 'formC.highRiskBasis' },
+                { x: 271.0, y: 555.6, key: 'formC.proceedReasons' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // Purpose of transaction
+                { x: 208.1, y: 593.5, key: 'formC.purpose', match: 'OwnStay' },
+                { x: 265.0, y: 593.1, key: 'formC.purpose', match: 'Investment' },
+                { x: 324.3, y: 592.9, key: 'formC.purpose', match: 'Others' },
+                // Source of funds (multi-select array)
+                { x: 103.2, y: 525.4, key: 'formC.fundSources', match: 'PersonalSavings' },
+                { x: 103.2, y: 513.0, key: 'formC.fundSources', match: 'SaleOfProperty' },
+                { x: 103.3, y: 500.7, key: 'formC.fundSources', match: 'BusinessIncome' },
+                { x: 103.1, y: 487.9, key: 'formC.fundSources', match: 'InvestmentReturns' },
+                { x: 102.9, y: 475.3, key: 'formC.fundSources', match: 'Loan' },
+                { x: 103.2, y: 463.2, key: 'formC.fundSources', match: 'CPFFunds' },
+                { x: 103.0, y: 450.0, key: 'formC.fundSources', match: 'GiftInheritance' },
+                { x: 103.0, y: 437.8, key: 'formC.fundSources', match: 'Others' },
+                // Supporting docs for funds (multi-select array)
+                { x: 320.0, y: 547.2, key: 'formC.fundSupportingDocs', match: 'BankStatements' },
+                { x: 319.2, y: 534.6, key: 'formC.fundSupportingDocs', match: 'CPFStatement' },
+                { x: 319.5, y: 522.6, key: 'formC.fundSupportingDocs', match: 'SalePurchaseAgreement' },
+                { x: 319.4, y: 498.7, key: 'formC.fundSupportingDocs', match: 'LoanApprovalLetter' },
+                { x: 319.2, y: 486.4, key: 'formC.fundSupportingDocs', match: 'InvestmentPortfolio' },
+                { x: 319.5, y: 474.1, key: 'formC.fundSupportingDocs', match: 'GiftDeed' },
+                { x: 319.2, y: 461.5, key: 'formC.fundSupportingDocs', match: 'Others' },
+                // Source of wealth (multi-select)
+                { x: 103.2, y: 370.7, key: 'formC.wealthSources', match: 'BusinessOwnership' },
+                { x: 103.0, y: 347.4, key: 'formC.wealthSources', match: 'EmploymentIncome' },
+                { x: 103.1, y: 334.6, key: 'formC.wealthSources', match: 'Investments' },
+                { x: 103.3, y: 321.8, key: 'formC.wealthSources', match: 'Inheritance' },
+                { x: 103.6, y: 309.6, key: 'formC.wealthSources', match: 'PropertyPortfolio' },
+                { x: 103.5, y: 297.0, key: 'formC.wealthSources', match: 'Others' },
+                // Supporting docs for wealth (multi-select)
+                { x: 319.5, y: 391.8, key: 'formC.wealthSupportingDocs', match: 'CompanyFinancialStatements' },
+                { x: 319.9, y: 379.6, key: 'formC.wealthSupportingDocs', match: 'EmploymentLetter' },
+                { x: 319.4, y: 366.8, key: 'formC.wealthSupportingDocs', match: 'TaxReturns' },
+                { x: 319.4, y: 354.5, key: 'formC.wealthSupportingDocs', match: 'InvestmentCertificates' },
+                { x: 319.4, y: 342.0, key: 'formC.wealthSupportingDocs', match: 'PropertyOwnership' },
+                { x: 319.0, y: 329.7, key: 'formC.wealthSupportingDocs', match: 'Others' }
+            ],
+            2: [
+                // RES Recommendation
+                { x: 102.7, y: 575.1, key: 'formC.recommendation', match: 'Proceed' },
+                { x: 242.8, y: 575.3, key: 'formC.recommendation', match: 'NotProceed' }
+            ]
+        }
+    },
+
+    // =================================================
+    // Form U6 — Enhanced Due Diligence on Unrepresented Counterparty, 2 pages
+    // Same Section A/B/C/D structure as Form C, but for counterparty side.
+    // Page 1: Section A (transaction) + Section B (funds) + Section C (wealth)
+    // Page 2: Section D (RES Recommendation)
+    // =================================================
+    formU6: {
+        pages: 2,
+        text: {
+            1: [
+                { x: 180.1, y: 668.0, key: 'propertyAddress' },
+                { x: 190.8, y: 645.7, key: 'formU6.purchasePrice' },
+                { x: 413.4, y: 644.6, key: 'formU6.monthlyRental' },
+                { x: 427.0, y: 624.3, key: 'formU6.purposeOthersDetail' },
+                { x: 115.2, y: 580.2, key: 'formU6.transactionAmount' },
+                { x: 426.6, y: 575.9, key: 'formU6.bankStatementMonths' },
+                { x: 208.9, y: 504.0, key: 'formU6.fundLoanInstitution' },
+                { x: 361.6, y: 490.1, key: 'formU6.fundSupportingDocsOthersDetail' },
+                { x: 208.2, y: 468.6, key: 'formU6.fundSourcesOthersDetail' },
+                { x: 115.2, y: 422.9, key: 'formU6.wealthNetWorth' },
+                { x: 149.4, y: 388.7, key: 'formU6.wealthBusinessName' },
+                { x: 197.2, y: 364.4, key: 'formU6.wealthInvestmentType' },
+                { x: 361.3, y: 359.1, key: 'formU6.wealthSupportingDocsOthersDetail' },
+                { x: 215.0, y: 327.5, key: 'formU6.wealthSourcesOthersDetail' }
+            ],
+            2: [
+                { x: 217.0, y: 614.4, key: 'formU6.highRiskBasis' },
+                { x: 312.6, y: 557.5, key: 'formU6.proceedReasons' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // Purpose of transaction
+                { x: 208.2, y: 624.5, key: 'formU6.purpose', match: 'OwnStay' },
+                { x: 259.7, y: 623.8, key: 'formU6.purpose', match: 'Investment' },
+                { x: 316.7, y: 624.5, key: 'formU6.purpose', match: 'Others' },
+                // Source of funds (multi-select)
+                { x: 102.7, y: 556.0, key: 'formU6.fundSources', match: 'PersonalSavings' },
+                { x: 102.9, y: 544.2, key: 'formU6.fundSources', match: 'SaleOfProperty' },
+                { x: 103.3, y: 531.6, key: 'formU6.fundSources', match: 'BusinessIncome' },
+                { x: 103.3, y: 518.8, key: 'formU6.fundSources', match: 'InvestmentReturns' },
+                { x: 103.0, y: 506.4, key: 'formU6.fundSources', match: 'Loan' },
+                { x: 103.1, y: 493.9, key: 'formU6.fundSources', match: 'CPFFunds' },
+                { x: 103.4, y: 481.7, key: 'formU6.fundSources', match: 'GiftInheritance' },
+                { x: 102.9, y: 469.0, key: 'formU6.fundSources', match: 'Others' },
+                // Supporting docs for funds (multi-select)
+                { x: 319.1, y: 578.1, key: 'formU6.fundSupportingDocs', match: 'BankStatements' },
+                { x: 319.4, y: 565.7, key: 'formU6.fundSupportingDocs', match: 'CPFStatement' },
+                { x: 319.3, y: 552.8, key: 'formU6.fundSupportingDocs', match: 'SalePurchaseAgreement' },
+                { x: 319.2, y: 529.9, key: 'formU6.fundSupportingDocs', match: 'LoanApprovalLetter' },
+                { x: 319.2, y: 517.4, key: 'formU6.fundSupportingDocs', match: 'InvestmentPortfolio' },
+                { x: 319.6, y: 504.6, key: 'formU6.fundSupportingDocs', match: 'GiftDeed' },
+                { x: 319.4, y: 492.4, key: 'formU6.fundSupportingDocs', match: 'Others' },
+                // Source of wealth (multi-select)
+                { x: 103.3, y: 401.6, key: 'formU6.wealthSources', match: 'BusinessOwnership' },
+                { x: 103.1, y: 378.2, key: 'formU6.wealthSources', match: 'EmploymentIncome' },
+                { x: 103.2, y: 365.5, key: 'formU6.wealthSources', match: 'Investments' },
+                { x: 103.6, y: 353.5, key: 'formU6.wealthSources', match: 'Inheritance' },
+                { x: 103.2, y: 340.7, key: 'formU6.wealthSources', match: 'PropertyPortfolio' },
+                { x: 102.9, y: 327.8, key: 'formU6.wealthSources', match: 'Others' },
+                // Supporting docs for wealth (multi-select)
+                { x: 319.6, y: 422.7, key: 'formU6.wealthSupportingDocs', match: 'CompanyFinancialStatements' },
+                { x: 319.3, y: 410.2, key: 'formU6.wealthSupportingDocs', match: 'EmploymentLetter' },
+                { x: 319.6, y: 397.7, key: 'formU6.wealthSupportingDocs', match: 'TaxReturns' },
+                { x: 319.5, y: 385.2, key: 'formU6.wealthSupportingDocs', match: 'InvestmentCertificates' },
+                { x: 319.4, y: 372.9, key: 'formU6.wealthSupportingDocs', match: 'PropertyOwnership' },
+                { x: 319.6, y: 360.6, key: 'formU6.wealthSupportingDocs', match: 'Others' }
+            ],
+            2: [
+                // RES Recommendation
+                { x: 103.4, y: 577.5, key: 'formU6.recommendation', match: 'Proceed' },
+                { x: 243.0, y: 577.3, key: 'formU6.recommendation', match: 'NotProceed' }
+            ]
+        }
+    },
+
+    // =================================================
+    // Form D — Ongoing Due Diligence (periodic review of existing clients), 2 pages
+    // =================================================
+    formD: {
+        pages: 2,
+        text: {
+            1: [
+                // Section A — Client info (Individual + Entity columns)
+                { x: 154.7, y: 668.0, key: 'client.fullName' },
+                { x: 424.0, y: 668.0, key: 'entity.name' },
+                { x: 213.7, y: 648.8, key: 'client.nricOrPassport' },
+                { x: 407.4, y: 648.8, key: 'entity.uen' },
+                { x: 244.0, y: 632.0, key: 'formD.individualBOs' },
+                { x: 455.4, y: 632.0, key: 'formD.entityBOs' },
+                // Section B — Business relationship
+                { x: 196.0, y: 555.7, key: 'formD.relationshipNature' },
+                { x: 234.4, y: 538.1, key: 'formD.relationshipDate' },
+                { x: 453.8, y: 537.4, key: 'formD.transactionFrequency' },
+                // Section C — Risk assessment
+                { x: 373.8, y: 488.8, key: 'formD.reviewFrequency' },
+                { x: 374.0, y: 458.5, key: 'formD.lastReviewDate' },
+                { x: 374.5, y: 431.7, key: 'formD.nextReviewDue' },
+                { x:  97.6, y: 484.0, key: 'formD.riskLevelReasons' },
+                // Section D — Ongoing monitoring (1: Information Currency Check)
+                { x: 102.8, y: 242.1, key: 'formD.changeOthersDetail' },
+                // Section D — (2: Transaction Monitoring)
+                { x: 103.6, y: 118.3, key: 'formD.unusualPatterns' },
+                { x: 104.0,  y:  88.5, key: 'formD.actionsTaken' }
+            ],
+            2: [
+                { x: 153.2, y: 663.9, key: 'resName' },
+                { x: 395.1, y: 663.7, key: 'resReg' },
+                { x: 370.5, y: 604.3, key: 'dateOfForm' },
+                { x: 170.3, y: 586.9, key: 'estateAgentName' }
+            ]
+        },
+        checkboxes: {
+            1: [
+                // Information currency: Yes/No
+                { x: 417.9, y: 373.8, key: 'formD.docsCurrent', match: 'Yes' },
+                { x: 456.9, y: 373.9, key: 'formD.docsCurrent', match: 'No' },
+                // Changed details (multi-select array)
+                { x: 103.0, y: 335.0, key: 'formD.changedDetails', match: 'IDDocuments' },
+                { x: 102.8, y: 315.1, key: 'formD.changedDetails', match: 'ResidentialAddress' },
+                { x: 102.7, y: 295.5, key: 'formD.changedDetails', match: 'BeneficialOwners' },
+                { x: 102.9, y: 275.4, key: 'formD.changedDetails', match: 'SourceOfFunds' },
+                { x: 103.2, y: 255.5, key: 'formD.changedDetails', match: 'Others' },
+                // Action: copy obtained
+                { x: 103.1, y: 206.0, key: 'formD.copyObtained', match: true }
+            ],
+            2: [
+                { x: 103.2, y: 626.7, key: 'formD.transactionsConsistent', match: 'Yes' },
+                { x: 103.0, y: 606.5, key: 'formD.transactionsConsistent', match: 'No' }
+            ]
+        }
+    },
+
+    // =================================================
     // Form U3 — Particulars of Individual the Counterparty is Acting on Behalf Of, 1 page
     // Parallel to Form A3 but for the counterparty side.
     // =================================================
@@ -758,6 +1073,15 @@ window.buildAmlFieldData = function(formData, formId) {
         riskReason: formU5Overrides.riskReason || formU5Defaults.riskReason
     } : formU5Defaults;
 
+    // Form C / Form U6 — Enhanced Due Diligence (source of funds + source of wealth + recommendation)
+    // Identical structure; one is for client (C), one for counterparty (U6).
+    const buildEcddBlock = (override) => override || {};
+    const formC  = buildEcddBlock(formData.formC);
+    const formU6 = buildEcddBlock(formData.formU6);
+
+    // Form D — Ongoing Due Diligence (periodic review)
+    const formD = formData.formD || {};
+
     return {
         resName:    (formData.agentName || '').toString(),
         resReg:     (formData.ceaRegistration || '').toString(),
@@ -769,6 +1093,9 @@ window.buildAmlFieldData = function(formData, formId) {
         formB: formB,
         formA4: formA4,
         formU5: formU5,
+        formC:  formC,
+        formU6: formU6,
+        formD:  formD,
         // Women's Charter Checklist fields
         leaseStart: formData.leaseStartDate || '',
         leaseEnd:   formData.leaseEndDate || '',
@@ -942,6 +1269,60 @@ window.buildAmlFieldData = function(formData, formId) {
             occupation:      formData.counterpartyBo2Occupation || '',
             idType:          formData.counterpartyBo2IdType || 'NRIC',
             idOthersDetail:  formData.counterpartyBo2IdOthersDetail || ''
+        },
+
+        // Form U4 — counterparty's principal entity (when counterparty acts on behalf of an entity)
+        counterpartyPrincipalEntity: {
+            name:                formData.counterpartyPrincipalEntityName || '',
+            uen:                 formData.counterpartyPrincipalEntityUen || '',
+            dateOfIncorp:        formData.counterpartyPrincipalEntityDateOfIncorp || '',
+            country:             formData.counterpartyPrincipalEntityCountry || 'Singapore',
+            registeredAddress:   formData.counterpartyPrincipalEntityAddress || '',
+            principalAddress:    formData.counterpartyPrincipalEntityPrincipalAddress || '',
+            phone:               formData.counterpartyPrincipalEntityPhone || '',
+            email:               formData.counterpartyPrincipalEntityEmail || '',
+            mainBusiness:        formData.counterpartyPrincipalEntityMainBusiness || '',
+            type:                formData.counterpartyPrincipalEntityType || 'Company',
+            typeOthersDetail:    formData.counterpartyPrincipalEntityTypeOthersDetail || '',
+            authorised:          formData.counterpartyPrincipalEntityAuthorised !== false,
+            p1Designation:       formData.counterpartyPrincipalEntityP1Designation || '',
+            p1Name:              formData.counterpartyPrincipalEntityP1Name || '',
+            p1Nric:              formData.counterpartyPrincipalEntityP1Nric || '',
+            p1Nationality:       formData.counterpartyPrincipalEntityP1Nationality || '',
+            p1IdType:            formData.counterpartyPrincipalEntityP1IdType || 'NRIC',
+            p1IdOthersDetail:    formData.counterpartyPrincipalEntityP1IdOthersDetail || '',
+            p2Designation:       formData.counterpartyPrincipalEntityP2Designation || '',
+            p2Name:              formData.counterpartyPrincipalEntityP2Name || '',
+            p2Nric:              formData.counterpartyPrincipalEntityP2Nric || '',
+            p2Nationality:       formData.counterpartyPrincipalEntityP2Nationality || '',
+            p2IdType:            formData.counterpartyPrincipalEntityP2IdType || 'NRIC',
+            p2IdOthersDetail:    formData.counterpartyPrincipalEntityP2IdOthersDetail || '',
+            p3Designation:       formData.counterpartyPrincipalEntityP3Designation || '',
+            p3Name:              formData.counterpartyPrincipalEntityP3Name || '',
+            p3Nric:              formData.counterpartyPrincipalEntityP3Nric || '',
+            p3Nationality:       formData.counterpartyPrincipalEntityP3Nationality || '',
+            p3IdType:            formData.counterpartyPrincipalEntityP3IdType || 'NRIC',
+            p3IdOthersDetail:    formData.counterpartyPrincipalEntityP3IdOthersDetail || ''
+        },
+        counterpartyPrincipalBo1: {
+            fullName:        formData.counterpartyPrincipalBo1Name || '',
+            nricOrPassport:  formData.counterpartyPrincipalBo1Nric || '',
+            dob:             formData.counterpartyPrincipalBo1Dob || '',
+            address:         formData.counterpartyPrincipalBo1Address || '',
+            nationality:     formData.counterpartyPrincipalBo1Nationality || '',
+            occupation:      formData.counterpartyPrincipalBo1Occupation || '',
+            idType:          formData.counterpartyPrincipalBo1IdType || 'NRIC',
+            idOthersDetail:  formData.counterpartyPrincipalBo1IdOthersDetail || ''
+        },
+        counterpartyPrincipalBo2: {
+            fullName:        formData.counterpartyPrincipalBo2Name || '',
+            nricOrPassport:  formData.counterpartyPrincipalBo2Nric || '',
+            dob:             formData.counterpartyPrincipalBo2Dob || '',
+            address:         formData.counterpartyPrincipalBo2Address || '',
+            nationality:     formData.counterpartyPrincipalBo2Nationality || '',
+            occupation:      formData.counterpartyPrincipalBo2Occupation || '',
+            idType:          formData.counterpartyPrincipalBo2IdType || 'NRIC',
+            idOthersDetail:  formData.counterpartyPrincipalBo2IdOthersDetail || ''
         }
     };
 };
