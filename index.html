@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase2-tabs"></script>
+    <script src="aml-pdf-coords.js?v=phase3-prefill"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -554,6 +554,58 @@
                 const current = (formData[formKey] && formData[formKey][arrayKey]) || [];
                 const next = current.includes(item) ? current.filter(x => x !== item) : [...current, item];
                 updateNestedForm(formKey, arrayKey, next);
+            };
+
+            // ===== Phase 3: SMP-to-BO copy =====
+            // When a Senior Management Person (Director, Trustee, etc.) is also a
+            // Beneficial Owner of the entity, William shouldn't have to retype
+            // their name/NRIC/nationality/ID type. These helpers copy the
+            // overlapping fields from one prefix to another.
+            //
+            // Field overlap: Name, NRIC, IdType, IdOthersDetail, Nationality.
+            // Non-overlap: SMP has Designation; BO has DOB, Address, Occupation —
+            // William fills those manually on the BO card.
+            const copyPersonInfo = (sourcePrefix, destPrefix) => {
+                const overlap = [
+                    ['Name',           'Name'],
+                    ['Nric',           'Nric'],
+                    ['IdType',         'IdType'],
+                    ['IdOthersDetail', 'IdOthersDetail'],
+                    ['Nationality',    'Nationality']
+                ];
+                overlap.forEach(([fromSuffix, toSuffix]) => {
+                    const v = formData[sourcePrefix + fromSuffix];
+                    if (v !== undefined && v !== null && v !== '') {
+                        updateField(destPrefix + toSuffix, v);
+                    }
+                });
+            };
+
+            // Renders the row of "↓ Copy to BO …" buttons that lives at the bottom
+            // of a Senior Management Person card. boTargets is an array of objects
+            // describing each available destination BO slot.
+            // e.g. renderCopyToBOButtons('entityP1', [{ prefix: 'bo1', label: 'Beneficial Owner 1' }, ...])
+            const renderCopyToBOButtons = (sourcePrefix, sourceLabel, boTargets) => {
+                // Only show buttons if the source has a name filled in — otherwise nothing to copy.
+                if (!formData[sourcePrefix + 'Name']) return null;
+                return React.createElement('div', {
+                    className: 'mt-3 p-3 rounded border border-purple-200 bg-purple-50 text-xs'
+                },
+                    React.createElement('p', { className: 'text-purple-900 mb-2' },
+                        '\u2935\ufe0f Is ' + (formData[sourcePrefix + 'Name'] || sourceLabel) + ' also a Beneficial Owner? Copy basic info to:'),
+                    React.createElement('div', { className: 'flex flex-wrap gap-2' },
+                        boTargets.map(t =>
+                            React.createElement('button', {
+                                key: t.prefix,
+                                type: 'button',
+                                onClick: () => copyPersonInfo(sourcePrefix, t.prefix),
+                                className: 'px-3 py-1 rounded border-2 border-purple-300 bg-white text-purple-700 font-medium hover:bg-purple-100'
+                            }, '\u2935 ' + t.label)
+                        )
+                    ),
+                    React.createElement('p', { className: 'text-purple-700 mt-2 text-xs italic' },
+                        'Copies name, NRIC, nationality, ID type. You\u2019ll still need to fill DOB, address, and occupation on the BO card.')
+                );
             };
 
             // Helper to render a multi-select checkbox group inline. Cleans up the JSX
@@ -2308,7 +2360,12 @@
                                 label: 'Nationality',
                                 value: formData.entityP1Nationality,
                                 onChange: (v) => updateField('entityP1Nationality', v)
-                            })
+                            }),
+                            // SMP-to-BO copy buttons (Phase 3 prefill)
+                            renderCopyToBOButtons('entityP1', 'this representative', [
+                                { prefix: 'bo1', label: 'Beneficial Owner 1' },
+                                { prefix: 'bo2', label: 'Beneficial Owner 2' }
+                            ])
                         ),
 
                         // --- Beneficial Owner 1 (A2 page 2) ---
@@ -2672,6 +2729,12 @@
                                 value: formData.counterpartyEntityP1Nationality,
                                 onChange: (v) => updateField('counterpartyEntityP1Nationality', v)
                             }),
+                            // SMP-to-BO copy buttons (Phase 3 prefill)
+                            renderCopyToBOButtons('counterpartyEntityP1', 'this representative', [
+                                { prefix: 'counterpartyBo1', label: 'Counterparty BO 1' },
+                                { prefix: 'counterpartyBo2', label: 'Counterparty BO 2' }
+                            ]),
+
                             React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Senior Management Personnel — Person 2 (optional)'),
                             React.createElement(InputField, {
                                 label: 'Designation',
@@ -2708,7 +2771,12 @@
                                 label: 'Nationality',
                                 value: formData.counterpartyEntityP2Nationality,
                                 onChange: (v) => updateField('counterpartyEntityP2Nationality', v)
-                            })
+                            }),
+                            // SMP-to-BO copy buttons (Phase 3 prefill)
+                            renderCopyToBOButtons('counterpartyEntityP2', 'this representative', [
+                                { prefix: 'counterpartyBo1', label: 'Counterparty BO 1' },
+                                { prefix: 'counterpartyBo2', label: 'Counterparty BO 2' }
+                            ])
                         ),
 
                         // --- Counterparty Beneficial Owner 1 (Form U2 page 2) ---
@@ -3506,7 +3574,12 @@
                                         label: 'Nationality',
                                         value: formData['counterpartyPrincipalEntityP' + n + 'Nationality'],
                                         onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'Nationality', v)
-                                    })
+                                    }),
+                                    // SMP-to-BO copy buttons (Phase 3 prefill)
+                                    renderCopyToBOButtons('counterpartyPrincipalEntityP' + n, 'this person', [
+                                        { prefix: 'counterpartyPrincipalBo1', label: 'Counterparty Principal BO 1' },
+                                        { prefix: 'counterpartyPrincipalBo2', label: 'Counterparty Principal BO 2' }
+                                    ])
                                 )
                             ),
 
