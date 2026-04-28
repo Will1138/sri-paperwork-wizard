@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase4-4-u6spacing"></script>
+    <script src="aml-pdf-coords.js?v=autosave-1"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -118,7 +118,13 @@
                 React.createElement('label', { className: 'ml-3 text-sm text-gray-700' }, label)
             );
 
-        const ProgressBar = ({ step, transactionType }) => {
+        // Auto-save draft storage. We use sessionStorage (NOT localStorage) so the
+        // draft only survives page refreshes within the same tab and disappears
+        // automatically when the tab is closed. Data never leaves the user's
+        // device — see the privacy banner in Step 1.
+        const DRAFT_STORAGE_KEY = 'sri-paperwork-wizard-draft-v1';
+
+        const ProgressBar = ({ step, transactionType, onClear }) => {
             // Non-RoomRental: 6 steps (Deal -> Structure -> Forms -> Details -> AML -> Review)
             // RoomRental: 4 steps (Deal -> Forms -> Details -> Review), skipping Structure(2) and AML(5)
             const totalSteps = transactionType === 'RoomRental' ? 4 : 6;
@@ -134,7 +140,15 @@
             return React.createElement('div', { className: 'mb-8' },
                 React.createElement('div', { className: 'flex justify-between items-center mb-4' },
                     React.createElement('h1', { className: 'text-3xl font-bold', style: { color: '#5B2D8E' } }, 'SRI Paperwork Wizard'),
-                    React.createElement('span', { className: 'text-gray-600 text-sm' }, `Step ${currentStep} of ${totalSteps}`)
+                    React.createElement('div', { className: 'flex items-center gap-4' },
+                        onClear && React.createElement('button', {
+                            type: 'button',
+                            onClick: onClear,
+                            className: 'text-xs text-gray-500 hover:text-red-600 underline',
+                            title: 'Wipe all entered data and start fresh'
+                        }, 'Clear all data'),
+                        React.createElement('span', { className: 'text-gray-600 text-sm' }, `Step ${currentStep} of ${totalSteps}`)
+                    )
                 ),
                 React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2' },
                     React.createElement('div', {
@@ -443,8 +457,46 @@
                     counterpartyPrincipalBo2Occupation: '',
                     counterpartyPrincipalBo2IdType: 'NRIC',
                     counterpartyPrincipalBo2IdOthersDetail: '',
+                },
+                // Lazy initializer: try to restore a draft from sessionStorage
+                // so a refresh / accidental nav-away doesn't wipe Step 1-5 inputs.
+                // Merge with defaults so newly-added fields aren't undefined when
+                // restoring an older draft (schema-drift safety).
+                (defaults) => {
+                    try {
+                        const raw = window.sessionStorage && sessionStorage.getItem(DRAFT_STORAGE_KEY);
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            if (parsed && typeof parsed === 'object') {
+                                return { ...defaults, ...parsed };
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[draft] restore failed, using defaults:', e);
+                    }
+                    return defaults;
                 }
             );
+
+            // Persist every change to sessionStorage. Tab-scoped: closing the
+            // browser tab automatically wipes the draft. Nothing leaves the device.
+            React.useEffect(() => {
+                try {
+                    sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(formData));
+                } catch (e) {
+                    // Storage full / disabled / private browsing — silently degrade.
+                    console.warn('[draft] save failed:', e);
+                }
+            }, [formData]);
+
+            // Clear the saved draft AND reset to a fresh wizard. We reload the page
+            // because manually resetting every nested field is fragile; reload is
+            // the simplest, most reliable reset. Confirm before destroying input.
+            const clearDraft = () => {
+                if (!window.confirm('Clear all entered data and start a fresh deal? This cannot be undone.')) return;
+                try { sessionStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) {}
+                window.location.reload();
+            };
 
             const updateField = (field, value) => {
                 setFormData({ type: 'SET_FIELD', field, value });
@@ -1453,6 +1505,15 @@
                     }
 
                     setGenStatus('');
+                    // Offer to wipe the draft now that documents are downloaded.
+                    // Default Yes — most agents will move on to a different deal next.
+                    // Ask after a short tick so the last download has time to start.
+                    setTimeout(() => {
+                        if (window.confirm('Documents generated. Clear this deal\u2019s data from the browser now?')) {
+                            try { sessionStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) {}
+                            window.location.reload();
+                        }
+                    }, 600);
                 } catch (err) {
                     console.error('Error generating documents:', err);
                     alert('Error generating documents: ' + err.message);
@@ -1464,10 +1525,19 @@
 
             return React.createElement('div', { className: 'min-h-screen bg-white' },
                 React.createElement('div', { className: 'max-w-4xl mx-auto px-4 py-8' },
-                    React.createElement(ProgressBar, { step, transactionType: formData.transactionType }),
+                    React.createElement(ProgressBar, { step, transactionType: formData.transactionType, onClear: clearDraft }),
 
                     step === 1 && React.createElement('div', null,
                         React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Tell us about your deal'),
+                        // Privacy banner — explains where draft data lives so users can trust auto-save.
+                        React.createElement('div', { className: 'rounded-lg border border-blue-200 bg-blue-50 p-4 mb-6 text-sm text-blue-900 flex items-start gap-3' },
+                            React.createElement('span', { className: 'text-lg leading-none' }, '\ud83d\udd12'),
+                            React.createElement('div', null,
+                                React.createElement('p', { className: 'font-semibold mb-1' }, 'Your data stays on your device.'),
+                                React.createElement('p', { className: 'text-xs text-blue-800' },
+                                    'As you fill out this wizard, your inputs are saved temporarily in this browser tab so a refresh or accidental nav-away won\u2019t lose your work. Nothing is sent to any server. The draft auto-clears when you close the tab. Use \u201CClear all data\u201D in the top right to wipe immediately.')
+                            )
+                        ),
                         React.createElement(FormSection, { title: '1. Transaction Type' },
                             React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                                 ['Sale', 'Purchase', 'Rental', 'RoomRental'].map((type) =>
