@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=q6-auto-na"></script>
+    <script src="aml-pdf-coords.js?v=ta-fill-gaps-ddmmyyyy"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -221,6 +221,12 @@
                     leaseStartDate: '',
                     leaseEndDate: '',
                     securityDeposit: '',
+                    // --- Tenancy Agreement specific terms ---
+                    paymentDueDay: '1',                 // Day of month rent is due (1-31)
+                    repairCapAmount: '200',             // Landlord's per-item repair cap (S$)
+                    repairThresholdAmount: '200',       // Threshold above which landlord consent needed
+                    diplomaticClauseMonths: '12',       // Minimum months before diplomatic clause kicks in
+                    handoverLetterDate: '',             // Optional — defaults to agreement date
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
                     // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
@@ -1261,6 +1267,25 @@
                     ? (formData.transactionType === 'Rental' ? 'Landlord' : 'Seller')
                     : (formData.transactionType === 'Rental' ? 'Tenant' : 'Buyer');
 
+                // === Tenancy Agreement specific values ===
+                // Repair cap amount in words + numbers (defaults to S$200 per item)
+                const repairCapNum     = parseFloat(String(formData.repairCapAmount || '0').replace(/,/g, '').trim()) || 0;
+                const repairCapWords   = repairCapNum > 0 ? numberToWords(repairCapNum) : '';
+                const repairCapFmt     = repairCapNum > 0 ? formatPrice(repairCapNum) : '';
+                const repairThresholdNum = parseFloat(String(formData.repairThresholdAmount || '0').replace(/,/g, '').trim()) || 0;
+                const repairThresholdFmt = repairThresholdNum > 0 ? formatPrice(repairThresholdNum) : '';
+                // Handover letter date defaults to today (agreement date) if not set
+                const handoverDate     = formData.handoverLetterDate || formData.agreementDate || today;
+                // Diplomatic clause: tenant name (counterparty if William is on landlord side)
+                const isLandlordRole   = formData.role === 'Seller/Landlord';
+                const tenantName       = isLandlordRole ? (formData.counterpartyName || '') : (formData.clientName || '');
+                const tenant2Name      = isLandlordRole ? (formData.counterparty2Name || '') : (formData.client2Name || '');
+                const landlordName     = isLandlordRole ? (formData.clientName || '') : (formData.counterpartyName || '');
+                const landlord2Name    = isLandlordRole ? (formData.client2Name || '') : (formData.counterparty2Name || '');
+                // Tenant NRIC (for signature blocks if needed)
+                const tenantNric       = isLandlordRole ? (formData.counterpartyNRIC || '') : (formData.clientNRIC || '');
+                const landlordNric     = isLandlordRole ? (formData.clientNRIC || '') : (formData.counterpartyNRIC || '');
+
                 // Step 1: Extract all text content to build context for matching
                 // We concatenate text from <w:t> tags to understand the document flow
                 const textParts = [];
@@ -1287,6 +1312,40 @@
                 // For CEA forms (Forms 1-8), fields look like "Seller (1) Name: ___"
                 // For Commission Agreements, fields look like "Name : ___________________"
                 const replacements = [
+                    // ==========================================================
+                    // === TENANCY AGREEMENT SPECIFIC RULES (must come first) ===
+                    // Each rule anchors on unique surrounding text so the right
+                    // occurrence is matched without colliding with the generic
+                    // "Singapore Dollars / (S$ ___)" rules below.
+                    // ==========================================================
+                    // Payment due day — "by the [_] of the month"
+                    { pattern: /by the\s*(_{3,})\s*of the month/i, value: formData.paymentDueDay || '' },
+                    // Repair cap (1st occurrence — "total sum of Singapore Dollars [____]")
+                    { pattern: /not exceeding a total sum of Singapore Dollars\s*(_{3,})/, value: repairCapWords ? (repairCapWords + ' Only') : '' },
+                    // Repair cap (1st — number "(S$ ____)" right after the words)
+                    { pattern: /total sum of Singapore Dollars[\s\S]{0,40}?\(S\$\s*(_{3,})\s*\)/, value: repairCapFmt },
+                    // Repair cap (2nd occurrence — "Any expenditure exceeding Singapore Dollars [____]")
+                    { pattern: /Any expenditure exceeding Singapore Dollars\s*(_{3,})/, value: repairCapWords ? (repairCapWords + ' Only') : '' },
+                    // Repair cap (2nd — number)
+                    { pattern: /Any expenditure exceeding Singapore Dollars[\s\S]{0,40}?\(S\$\s*(_{3,})\s*\)/, value: repairCapFmt },
+                    // Repair threshold — "repair cost that exceeds S$ [____]"
+                    { pattern: /repair cost that exceeds S\$\s*(_{3,})/, value: repairThresholdFmt },
+                    // Cleaning forfeiture clause monthly rent reference — "20% of the monthly rental of S$ [____]"
+                    { pattern: /20%\s*of the monthly rental of\s*S\$\s*(_{3,})/, value: priceFormatted },
+                    // Letter dated — "in the said letter dated [____] 202_"
+                    { pattern: /in the said letter dated\s*(_{3,})/, value: handoverDate },
+                    // Diplomatic clause tenant name — "if [____] is required to leave Singapore"
+                    { pattern: /if\s*(_{3,})\s*is required to leave Singapore/, value: (tenantName || '').toUpperCase() },
+                    // Diplomatic clause minimum lease months — appears twice
+                    { pattern: /right up to the\s*(_{3,})\s*th month of this lease/, value: formData.diplomaticClauseMonths || '' },
+                    { pattern: /minimum of\s*(_{3,})\s*months/, value: formData.diplomaticClauseMonths || '' },
+                    // Signature blocks — Landlord 1, Landlord 2, Tenant 1, Tenant 2
+                    // (Witness lines stay blank for manual signing.)
+                    { pattern: /Landlord 1\s*:?\s*(_{3,})/, value: (landlordName || '').toUpperCase() },
+                    { pattern: /Landlord 2\s*:?\s*(_{3,})/, value: (landlord2Name || '').toUpperCase() },
+                    { pattern: /Tenant 1\s*:?\s*(_{3,})/,   value: (tenantName || '').toUpperCase() },
+                    { pattern: /Tenant 2\s*:?\s*(_{3,})/,   value: (tenant2Name || '').toUpperCase() },
+
                     // === DATE FIELDS ===
                     { pattern: /Date\s*:?\s*(_{3,})/, value: today },
                     { pattern: /dated this\s*(_{3,})/, value: today },
@@ -1410,9 +1469,21 @@
                 console.log('[FILL] Flat text length:', flatText.length, 'textParts count:', textParts.length);
                 console.log('[FILL] First 500 chars of flat text:', flatText.substring(0, 500));
 
+                // HTML date inputs return ISO YYYY-MM-DD. Convert any rule value
+                // matching that shape to dd/mm/yyyy before substitution. This covers
+                // every date-flavoured field (lease dates, DOBs, handover, exclusive
+                // period, agreement date, etc.) without per-rule plumbing.
+                const fmtDateIfIso = (v) => {
+                    if (!v || typeof v !== 'string') return v;
+                    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : v;
+                };
+
                 const claimedParts = new Set(); // track which textParts have already been replaced
                 for (const rule of replacements) {
                     if (!rule.value) continue;
+                    // Auto-convert ISO dates to dd/mm/yyyy
+                    rule.value = fmtDateIfIso(rule.value);
                     const match = rule.pattern.exec(flatText);
                     if (!match || !match[1]) continue;
 
@@ -2261,6 +2332,42 @@
                                     value: formData.securityDeposit,
                                     onChange: (v) => updateField('securityDeposit', v),
                                     type: 'number'
+                                }),
+                                // --- TA-specific terms (defaults pre-filled to typical values) ---
+                                React.createElement(InputField, {
+                                    key: 'pay-day',
+                                    label: 'Rent payment due day of month (e.g. 1, 5, 15)',
+                                    value: formData.paymentDueDay,
+                                    onChange: (v) => updateField('paymentDueDay', v),
+                                    type: 'number'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'repair-cap',
+                                    label: 'Landlord repair cap per item (S$)',
+                                    value: formData.repairCapAmount,
+                                    onChange: (v) => updateField('repairCapAmount', v),
+                                    type: 'number'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'repair-threshold',
+                                    label: 'Repair threshold needing landlord consent (S$)',
+                                    value: formData.repairThresholdAmount,
+                                    onChange: (v) => updateField('repairThresholdAmount', v),
+                                    type: 'number'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'dip-months',
+                                    label: 'Diplomatic clause minimum lease months (e.g. 12, 14)',
+                                    value: formData.diplomaticClauseMonths,
+                                    onChange: (v) => updateField('diplomaticClauseMonths', v),
+                                    type: 'number'
+                                }),
+                                React.createElement(InputField, {
+                                    key: 'handover-letter',
+                                    label: 'Handover letter date (optional — defaults to agreement date)',
+                                    value: formData.handoverLetterDate,
+                                    onChange: (v) => updateField('handoverLetterDate', v),
+                                    type: 'date'
                                 })
                             ],
                             formData.agencyType === 'Exclusive' && [
