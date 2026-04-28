@@ -1066,7 +1066,7 @@ window.buildAmlFieldData = function(formData, formId) {
     // answers in a future Step 5 sub-block; for now this matches what he'd
     // tick manually for a clean transaction.
     const formBDefaults = {
-        s1: ['No', 'No', 'No', 'No', 'No', 'No'],   // 6 PEP/sanctions Qs (Q6 may also be 'NA')
+        s1: ['No', 'No', 'No', 'No', 'No', 'NA'],   // 6 PEP/sanctions Qs (Q6 may also be 'NA')
         s2: Array(29).fill('No'),                    // 29 red flag indicators
         riskReason: ''                                // Filled only when any answer is Yes
     };
@@ -1090,7 +1090,7 @@ window.buildAmlFieldData = function(formData, formId) {
     // Form U5 — same shape as Form B, but for the unrepresented counterparty side.
     // Defaults to all-No; only honoured when William taps the "show exceptions" toggle.
     const formU5Defaults = {
-        s1: ['No', 'No', 'No', 'No', 'No', 'No'],
+        s1: ['No', 'No', 'No', 'No', 'No', 'NA'],
         s2: Array(29).fill('No'),
         riskReason: ''
     };

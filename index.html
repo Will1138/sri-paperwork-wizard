@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase4b-joint-cp"></script>
+    <script src="aml-pdf-coords.js?v=q6-auto-na"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -65,7 +65,7 @@
         const CardButton = ({ selected, onClick, children, className = '' }) =>
             React.createElement('button', {
                 onClick,
-                className: `p-6 rounded-lg border-2 transition-all text-left ${selected ? 'border-purple-600 bg-purple-50' : 'border-gray-300 bg-white hover:border-purple-400'} ${className}`
+                className: `p-3 sm:p-5 rounded-lg border-2 transition-all text-left ${selected ? 'border-purple-600 bg-purple-50' : 'border-gray-300 bg-white hover:border-purple-400'} ${className}`
             }, children);
 
         const FormSection = ({ title, children }) =>
@@ -137,10 +137,10 @@
             }
             const progress = (currentStep / totalSteps) * 100;
 
-            return React.createElement('div', { className: 'mb-8' },
-                React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                    React.createElement('h1', { className: 'text-3xl font-bold', style: { color: '#5B2D8E' } }, 'SRI Paperwork Wizard'),
-                    React.createElement('div', { className: 'flex items-center gap-4' },
+            return React.createElement('div', { className: 'mb-6' },
+                React.createElement('div', { className: 'flex justify-between items-center mb-3' },
+                    React.createElement('h1', { className: 'text-xl sm:text-3xl font-bold', style: { color: '#5B2D8E' } }, 'SRI Paperwork Wizard'),
+                    React.createElement('div', { className: 'flex items-center gap-2 sm:gap-4' },
                         onClear && React.createElement('button', {
                             type: 'button',
                             onClick: onClear,
@@ -332,7 +332,9 @@
                     // only when toggled does William see the 35 individual Yes/No questions.
                     formB: {
                         showExceptions: false,
-                        s1: ['No','No','No','No','No','No'],
+                        // Q6 defaults to 'NA' because Q4 and Q5 default to 'No' —
+                        // a clean designated-persons check means "no other concern".
+                        s1: ['No','No','No','No','No','NA'],
                         s2: Array(29).fill('No'),
                         riskReason: ''
                     },
@@ -340,7 +342,7 @@
                     // Form U5 (counterparty risk screening) — same shape as formB
                     formU5: {
                         showExceptions: false,
-                        s1: ['No','No','No','No','No','No'],
+                        s1: ['No','No','No','No','No','NA'],
                         s2: Array(29).fill('No'),
                         riskReason: ''
                     },
@@ -567,6 +569,28 @@
                 arr[idx] = value;
                 updateFormU5(section, arr);
             };
+
+            // Auto-set Section 1 Q6 ("other concerns?") to N/A whenever Q4 (TSOFA / UN
+            // designated person) and Q5 (UNSC / MAS designated entity) are both answered
+            // No. The reasoning: Q6 is a follow-up "anything else?" — if the standard
+            // designated-persons checks are clean, there's no extra concern to flag.
+            // Watches s1[3] and s1[4] for both Form B and Form U5.
+            const fbS1 = formData.formB && formData.formB.s1;
+            const fu5S1 = formData.formU5 && formData.formU5.s1;
+            React.useEffect(() => {
+                if (fbS1 && fbS1[3] === 'No' && fbS1[4] === 'No' && fbS1[5] !== 'NA') {
+                    const next = [...fbS1];
+                    next[5] = 'NA';
+                    updateFormB('s1', next);
+                }
+            }, [fbS1 && fbS1[3], fbS1 && fbS1[4]]);
+            React.useEffect(() => {
+                if (fu5S1 && fu5S1[3] === 'No' && fu5S1[4] === 'No' && fu5S1[5] !== 'NA') {
+                    const next = [...fu5S1];
+                    next[5] = 'NA';
+                    updateFormU5('s1', next);
+                }
+            }, [fu5S1 && fu5S1[3], fu5S1 && fu5S1[4]]);
 
             // Generic "update one key inside a nested form-state object" helper.
             // Used for formC / formU6 / formD where each form has its own sub-object.
@@ -891,13 +915,55 @@
                 // Intelligent AML form selection based on CDD framework
                 forms.amlkyc = getAMLFormsNeeded();
 
+                // Transaction documents — dispatch by property type AND role.
+                // Sale/Purchase: seller side gets OTP; buyer side gets OTP + Offer to Purchase
+                //   (buyer's initial offer, before seller's OTP is issued).
+                // Rental: landlord side gets LOI(landlord) + Letter of Offer + TA;
+                //          tenant side gets LOI(tenant) + TA.
+                // HDB resale uses HDB Resale Portal forms — we don't generate the OTP here.
+                const propIsHDB        = formData.propertyType === 'HDB';
+                const propIsCommercial = formData.propertyType === 'Commercial';
+                const isBuyerSide      = formData.role === 'Buyer/Tenant';
+                const isLandlordSide   = formData.role === 'Seller/Landlord';
+
                 if (formData.transactionType === 'Sale/Purchase') {
-                    forms.transaction.push({ id: 'otp', name: 'Offer to Purchase (OTP)' });
+                    if (propIsCommercial) {
+                        // Commercial / Industrial sale
+                        forms.transaction.push({ id: 'otp_ci', name: 'Option to Purchase (Commercial)' });
+                        if (isBuyerSide) {
+                            forms.transaction.push({ id: 'offerToPurchase_ci', name: 'Offer to Purchase (Commercial)' });
+                        }
+                    } else if (propIsHDB) {
+                        // HDB resale uses the HDB Resale Portal's OTP — no template generated here.
+                        // (Wizard still generates the AML and commission docs.)
+                    } else {
+                        // Private residential
+                        forms.transaction.push({ id: 'otp', name: 'Option to Purchase' });
+                        if (isBuyerSide) {
+                            forms.transaction.push({ id: 'offerToPurchase', name: 'Offer to Purchase (Buyer’s initial offer)' });
+                        }
+                    }
                 } else if (formData.transactionType === 'Rental') {
-                    forms.transaction.push(
-                        { id: 'loi', name: 'Letter of Intent (LOI)' },
-                        { id: 'tenancyAgreement', name: 'Tenancy Agreement' }
-                    );
+                    if (propIsCommercial) {
+                        forms.transaction.push(
+                            { id: 'loi_ci',                 name: 'Letter of Intent (Commercial)' },
+                            { id: 'tenancyAgreement_ci',    name: 'Tenancy Agreement (Commercial)' }
+                        );
+                    } else {
+                        // Private + HDB share the residential LOI and TA templates,
+                        // with the TA template differing.
+                        forms.transaction.push({
+                            id: isLandlordSide ? 'loi_landlord' : 'loi_tenant',
+                            name: 'Letter of Intent (' + (isLandlordSide ? 'Landlord' : 'Tenant') + ')'
+                        });
+                        if (isLandlordSide) {
+                            forms.transaction.push({ id: 'letterOfOffer', name: 'Letter of Offer (Landlord)' });
+                        }
+                        forms.transaction.push({
+                            id:   propIsHDB ? 'tenancyAgreement_hdb' : 'tenancyAgreement',
+                            name: propIsHDB ? 'Tenancy Agreement (HDB)' : 'Tenancy Agreement'
+                        });
+                    }
                 }
 
                 if (formData.transactionType === 'Rental' && (formData.propertyType === 'HDB' || formData.propertyType === 'Private')) {
@@ -1745,11 +1811,11 @@
             };
 
             return React.createElement('div', { className: 'min-h-screen bg-white' },
-                React.createElement('div', { className: 'max-w-4xl mx-auto px-4 py-8' },
+                React.createElement('div', { className: 'max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8' },
                     React.createElement(ProgressBar, { step, transactionType: formData.transactionType, onClear: clearDraft }),
 
                     step === 1 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Tell us about your deal'),
+                        React.createElement('h2', { className: 'text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800' }, 'Tell us about your deal'),
                         // Privacy banner — explains where draft data lives so users can trust auto-save.
                         React.createElement('div', { className: 'rounded-lg border border-blue-200 bg-blue-50 p-4 mb-6 text-sm text-blue-900 flex items-start gap-3' },
                             React.createElement('span', { className: 'text-lg leading-none' }, '\ud83d\udd12'),
@@ -1760,7 +1826,7 @@
                             )
                         ),
                         React.createElement(FormSection, { title: '1. Transaction Type' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3' },
                                 ['Sale/Purchase', 'Rental', 'RoomRental'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1773,7 +1839,7 @@
                             )
                         ),
                         React.createElement(FormSection, { title: '2. Property Type' },
-                            React.createElement('div', { className: 'grid grid-cols-3 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3' },
                                 ['HDB', 'Private', 'Commercial'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1788,7 +1854,7 @@
                             )
                         ),
                         React.createElement(FormSection, { title: '3. Your Role' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3' },
                                 (formData.transactionType === 'Rental' || formData.transactionType === 'RoomRental') ?
                                     [
                                         React.createElement(CardButton, {
@@ -1828,9 +1894,9 @@
                     ),
 
                     step === 2 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Agency Structure & Client Details'),
+                        React.createElement('h2', { className: 'text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800' }, 'Agency Structure & Client Details'),
                         React.createElement(FormSection, { title: '4. Agency Type' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3' },
                                 ['Exclusive', 'NonExclusive'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1843,7 +1909,7 @@
                             )
                         ),
                         React.createElement(FormSection, { title: '5. Co-Broke Status' },
-                            React.createElement('div', { className: 'grid grid-cols-3 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3' },
                                 ['Solo', 'Cobroke', 'NotApplicable'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1860,7 +1926,7 @@
                             )
                         ),
                         React.createElement(FormSection, { title: '6. Your Client Type' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3' },
                                 ['Individual', 'Entity'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1914,7 +1980,7 @@
                             )
                         ),
                         formData.cobroke === 'Solo' && React.createElement(FormSection, { title: '9. Counterparty Type (Other Side)' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3' },
                                 ['Individual', 'Entity'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1953,7 +2019,7 @@
                         React.createElement(FormSection, { title: '11. Counterparty\u2019s Principal — Type' },
                             React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
                                 'Who is the counterparty acting on behalf of? Drives whether we generate Form U3 (individual principal) or Form U4 (entity / legal person principal).'),
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                            React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-3' },
                                 ['Individual', 'Entity'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
@@ -1972,7 +2038,7 @@
                     ),
 
                     step === 3 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Required Forms'),
+                        React.createElement('h2', { className: 'text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800' }, 'Required Forms'),
                         requiredForms.mustSign.length > 0 && React.createElement(FormSection, { title: 'MUST SIGN NOW' },
                             React.createElement('div', { className: 'space-y-3' },
                                 requiredForms.mustSign.map((form) =>
@@ -2031,7 +2097,7 @@
                     ),
 
                     step === 4 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Client & Transaction Details'),
+                        React.createElement('h2', { className: 'text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800' }, 'Client & Transaction Details'),
                         React.createElement(FormSection, { title: 'Agent Details' },
                             React.createElement(InputField, {
                                 label: 'Salesperson Name',
@@ -2301,13 +2367,13 @@
                         // --- Sub-step tab bar ---
                         // Renders one tab per visible AML section. Active tab is highlighted;
                         // clicking a tab jumps directly. Counterparty tab only shows for Solo deals.
-                        React.createElement('div', { className: 'flex flex-wrap gap-2 mb-8 pb-3 border-b border-gray-200' },
+                        React.createElement('div', { className: 'flex overflow-x-auto gap-2 mb-6 pb-3 border-b border-gray-200', style: { scrollbarWidth: 'none', msOverflowStyle: 'none' } },
                             amlTabsForRender.map((tab, i) =>
                                 React.createElement('button', {
                                     key: tab.id,
                                     type: 'button',
                                     onClick: () => setAmlSubStep(i + 1),
-                                    className: 'px-4 py-2 rounded-lg font-medium text-sm transition-all ' + (
+                                    className: 'px-3 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all whitespace-nowrap shrink-0 ' + (
                                         currentAmlTab.id === tab.id
                                             ? 'bg-purple-600 text-white shadow'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -2329,11 +2395,11 @@
                         // --- Property Category (for AML checkbox row) ---
                         // Always asked explicitly — never inferred from Step 1.
                         onAmlTab('common') && React.createElement(FormSection, { title: 'Property Category (AML form checkbox)' },
-                            React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
+                            React.createElement('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3' },
                                 [
                                     { value: 'HDB',    label: 'HDB' },
-                                    { value: 'Condo',  label: 'Condo / Apartment' },
-                                    { value: 'Landed', label: 'Landed Property' },
+                                    { value: 'Condo',  label: 'Condo / Apt' },
+                                    { value: 'Landed', label: 'Landed' },
                                     { value: 'Others', label: 'Others' }
                                 ].map((opt) =>
                                     React.createElement(CardButton, {
@@ -2733,7 +2799,7 @@
 
                             React.createElement('div', { className: 'mb-4' },
                                 React.createElement('p', { className: 'text-sm font-semibold text-gray-700 mb-2' }, 'Tenant / Occupier Citizenship'),
-                                React.createElement('div', { className: 'grid grid-cols-3 gap-3' },
+                                React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-3' },
                                     [
                                         { value: 'SCPR',      label: 'All SC / PR',       desc: 'Rows 1-3 will fill' },
                                         { value: 'Foreigner', label: 'All Foreigner',     desc: 'Rows 4-6 will fill' },
@@ -4007,7 +4073,7 @@
                     ),
 
                     step === 6 && React.createElement('div', null,
-                        React.createElement('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, 'Review & Generate'),
+                        React.createElement('h2', { className: 'text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800' }, 'Review & Generate'),
                         React.createElement('div', { className: 'bg-purple-50 border border-purple-200 rounded-lg p-6 mb-6' },
                             React.createElement('h3', { className: 'font-semibold text-purple-900 mb-4' }, 'Transaction Summary'),
                             React.createElement('div', { className: 'grid grid-cols-2 gap-4 text-sm' },
@@ -4085,11 +4151,11 @@
                         )
                     ),
 
-                    React.createElement('div', { className: 'flex justify-between mt-12 pt-8 border-t border-gray-200' },
+                    React.createElement('div', { className: 'flex justify-between mt-8 pt-6 border-t border-gray-200 sticky bottom-0 bg-white pb-4 sm:pb-0 sm:static' },
                         React.createElement('button', {
                             onClick: handleBack,
                             disabled: step === 1,
-                            className: `px-6 py-3 rounded-lg font-semibold transition-colors ${step === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`
+                            className: `px-5 py-3 rounded-lg font-semibold transition-colors ${step === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'}`
                         }, 'Back'),
                         React.createElement('button', {
                             onClick: () => {
@@ -4100,7 +4166,7 @@
                                 }
                             },
                             disabled: !validateStep() || generating,
-                            className: `px-6 py-3 rounded-lg font-semibold transition-colors ${(!validateStep() || generating) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`,
+                            className: `px-5 py-3 rounded-lg font-semibold transition-colors ${(!validateStep() || generating) ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'}`,
                             style: {
                                 backgroundColor: (validateStep() && !generating) ? '#5B2D8E' : '#D1D5DB',
                                 color: 'white'
