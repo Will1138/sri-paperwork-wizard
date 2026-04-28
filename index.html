@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=ui-c-u6-d-u4"></script>
+    <script src="aml-pdf-coords.js?v=phase2-tabs"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -162,6 +162,10 @@
         // Main app component
         const SRIPaperworkApp = () => {
             const [step, setStep] = React.useState(1);
+            // Step 5 is split into sub-steps (Phase 2). amlSubStep selects which
+            // block of the AML / KYC details to show. Resets to 1 whenever the
+            // wizard leaves step 5.
+            const [amlSubStep, setAmlSubStep] = React.useState(1);
             const [formData, setFormData] = React.useReducer(
                 (state, action) => {
                     switch (action.type) {
@@ -863,12 +867,47 @@
                 return true;
             };
 
+            // ===== Step 5 sub-step (tab) layout =====
+            // Tabs are dynamic — only relevant ones appear:
+            //   common — always (Form Date, Property Category)
+            //   client — always (KYC for client, BO, principal, screening, ECDD)
+            //   counterparty — only when Solo cobroke
+            //   special — always (Women's Charter for rental + Form D opt-in)
+            const getAmlTabs = () => {
+                const tabs = [
+                    { id: 'common',       label: 'Common' },
+                    { id: 'client',       label: 'Client' }
+                ];
+                if (formData.cobroke === 'Solo') tabs.push({ id: 'counterparty', label: 'Counterparty' });
+                tabs.push({ id: 'special', label: 'Special' });
+                return tabs;
+            };
+
+            // Reset amlSubStep to 1 whenever the wizard moves off step 5,
+            // and clamp it back into range if the visible tabs shrink.
+            React.useEffect(() => {
+                if (step !== 5) {
+                    setAmlSubStep(1);
+                    return;
+                }
+                const tabsLen = getAmlTabs().length;
+                if (amlSubStep > tabsLen) setAmlSubStep(tabsLen);
+            }, [step, formData.cobroke]);
+
             const handleNext = () => {
                 if (validateStep()) {
+                    // Inside step 5 — advance through tabs first, then leave the step.
+                    if (step === 5) {
+                        const tabs = getAmlTabs();
+                        if (amlSubStep < tabs.length) {
+                            setAmlSubStep(amlSubStep + 1);
+                            return;
+                        }
+                    }
                     if (formData.transactionType === 'RoomRental' && step === 1) {
                         setStep(3);
                     } else if (formData.transactionType === 'RoomRental' && step === 4) {
-                        // Skip the new AML details step for Room Rental
+                        // Skip the AML details step for Room Rental
                         setStep(6);
                     } else {
                         setStep(step + 1);
@@ -877,6 +916,11 @@
             };
 
             const handleBack = () => {
+                // Inside step 5 — go back through tabs first, then leave the step.
+                if (step === 5 && amlSubStep > 1) {
+                    setAmlSubStep(amlSubStep - 1);
+                    return;
+                }
                 if (formData.transactionType === 'RoomRental' && step === 3) {
                     setStep(1);
                 } else if (formData.transactionType === 'RoomRental' && step === 6) {
@@ -885,6 +929,12 @@
                     setStep(step - 1);
                 }
             };
+
+            // Resolve which tab is currently active in step 5.
+            // Computed once per render so step 5 JSX can stay declarative.
+            const amlTabsForRender = step === 5 ? getAmlTabs() : [];
+            const currentAmlTab = amlTabsForRender[amlSubStep - 1] || { id: '' };
+            const onAmlTab = (id) => currentAmlTab.id === id;
 
             const [generating, setGenerating] = React.useState(false);
             const [genStatus, setGenStatus] = React.useState('');
@@ -2063,11 +2113,29 @@
                     // =====================================================
                     step === 5 && React.createElement('div', null,
                         React.createElement('h2', { className: 'text-2xl font-bold mb-2 text-gray-800' }, 'AML / KYC Details'),
-                        React.createElement('p', { className: 'text-gray-600 mb-6 text-sm' },
-                            'These details are used to fill your AML forms (A1, A2, A3, U1). Only the sections relevant to this deal are shown below.'),
+                        React.createElement('p', { className: 'text-gray-600 mb-4 text-sm' },
+                            'Step 5 is split into sections. Use the tabs to jump between them, or just hit Continue to flow through in order.'),
 
-                        // --- Agreement / Form Date ---
-                        React.createElement(FormSection, { title: 'Form Date' },
+                        // --- Sub-step tab bar ---
+                        // Renders one tab per visible AML section. Active tab is highlighted;
+                        // clicking a tab jumps directly. Counterparty tab only shows for Solo deals.
+                        React.createElement('div', { className: 'flex flex-wrap gap-2 mb-8 pb-3 border-b border-gray-200' },
+                            amlTabsForRender.map((tab, i) =>
+                                React.createElement('button', {
+                                    key: tab.id,
+                                    type: 'button',
+                                    onClick: () => setAmlSubStep(i + 1),
+                                    className: 'px-4 py-2 rounded-lg font-medium text-sm transition-all ' + (
+                                        currentAmlTab.id === tab.id
+                                            ? 'bg-purple-600 text-white shadow'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    )
+                                }, `${i + 1}. ${tab.label}`)
+                            )
+                        ),
+
+                        // --- Common: Form Date + Property Category ---
+                        onAmlTab('common') && React.createElement(FormSection, { title: 'Form Date' },
                             React.createElement(InputField, {
                                 label: 'Date of Form Completion',
                                 value: formData.agreementDate,
@@ -2078,7 +2146,7 @@
 
                         // --- Property Category (for AML checkbox row) ---
                         // Always asked explicitly — never inferred from Step 1.
-                        React.createElement(FormSection, { title: 'Property Category (AML form checkbox)' },
+                        onAmlTab('common') && React.createElement(FormSection, { title: 'Property Category (AML form checkbox)' },
                             React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
                                 [
                                     { value: 'HDB',    label: 'HDB' },
@@ -2096,7 +2164,7 @@
                         ),
 
                         // --- Individual Client Block (A1) ---
-                        formData.clientType === 'Individual' && React.createElement(FormSection, { title: 'Client KYC (Individual — for Form A1)' },
+                        onAmlTab('client') && formData.clientType === 'Individual' && React.createElement(FormSection, { title: 'Client KYC (Individual — for Form A1)' },
                             React.createElement(SelectField, {
                                 label: 'ID Type',
                                 value: formData.clientIdType,
@@ -2130,7 +2198,7 @@
                         ),
 
                         // --- Entity Client Block (A2) ---
-                        formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Entity KYC (for Form A2)' },
+                        onAmlTab('client') && formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Entity KYC (for Form A2)' },
                             React.createElement(InputField, {
                                 label: 'Entity / Company Name (as per ACRA)',
                                 value: formData.entityName,
@@ -2244,7 +2312,7 @@
                         ),
 
                         // --- Beneficial Owner 1 (A2 page 2) ---
-                        formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Beneficial Owner 1 (for Form A2 page 2)' },
+                        onAmlTab('client') && formData.clientType === 'Entity' && React.createElement(FormSection, { title: 'Beneficial Owner 1 (for Form A2 page 2)' },
                             React.createElement(InputField, {
                                 label: 'Full Name',
                                 value: formData.bo1Name,
@@ -2295,7 +2363,7 @@
                         ),
 
                         // --- Principal (acting on behalf) Block (A3) ---
-                        formData.clientActingOnBehalf && React.createElement(FormSection, { title: 'Principal (person client acts for — for Form A3)' },
+                        onAmlTab('client') && formData.clientActingOnBehalf && React.createElement(FormSection, { title: 'Principal (person client acts for — for Form A3)' },
                             React.createElement(CheckboxField, {
                                 label: 'Client is authorised to act on behalf (attach Letter of Authorisation)',
                                 checked: formData.principalClientAuthorised,
@@ -2353,7 +2421,7 @@
                         ),
 
                         // --- Counterparty AML Block (U1) ---
-                        formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && React.createElement(FormSection, { title: 'Counterparty KYC (Individual — for Form U1)' },
+                        onAmlTab('counterparty') && formData.cobroke === 'Solo' && formData.counterpartyType === 'Individual' && React.createElement(FormSection, { title: 'Counterparty KYC (Individual — for Form U1)' },
                             React.createElement(SelectField, {
                                 label: 'ID Type',
                                 value: formData.counterpartyIdType,
@@ -2389,7 +2457,7 @@
                         ),
 
                         // --- Women's Charter Checklist — rental deals only ---
-                        formData.transactionType === 'Rental' && React.createElement(FormSection, { title: "Women's Charter Checklist (residential lease)" },
+                        onAmlTab('special') && formData.transactionType === 'Rental' && React.createElement(FormSection, { title: "Women's Charter Checklist (residential lease)" },
                             React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
                                 "This form has two sections: NRIC checks for Singapore Citizens/PRs (rows 1-3) and immigration pass checks for foreigners (rows 4-6). Pick who the tenants/occupiers are so only the right section is filled."),
 
@@ -2424,7 +2492,7 @@
                         ),
 
                         // --- Counterparty Principal (Form U3) — when counterparty acts on behalf of someone ---
-                        requiredForms.amlkyc.some(f => f.id === 'formU3') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU3') && React.createElement(FormSection,
                             { title: 'Counterparty Principal (person counterparty acts for — for Form U3)' },
                             React.createElement(SelectField, {
                                 label: 'Is the counterparty authorised to act on behalf of the Individual?',
@@ -2487,7 +2555,7 @@
                         ),
 
                         // --- Counterparty Entity (Form U2) — when counterparty is an entity ---
-                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
                             { title: 'Counterparty Entity (for Form U2)' },
                             React.createElement(InputField, {
                                 label: 'Entity / Company Name (as per ACRA)',
@@ -2644,7 +2712,7 @@
                         ),
 
                         // --- Counterparty Beneficial Owner 1 (Form U2 page 2) ---
-                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
                             { title: 'Counterparty Beneficial Owner 1 (for Form U2 page 2)' },
                             React.createElement(InputField, {
                                 label: 'Full Name',
@@ -2696,7 +2764,7 @@
                         ),
 
                         // --- Counterparty Beneficial Owner 2 (Form U2 page 2, optional) ---
-                        requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU2') && React.createElement(FormSection,
                             { title: 'Counterparty Beneficial Owner 2 (optional)' },
                             React.createElement(InputField, {
                                 label: 'Full Name',
@@ -2750,7 +2818,7 @@
                         // --- Form C: Enhanced Customer Due Diligence (Client) ---
                         // Auto-added when Form B screening flags any Yes. UI captures the
                         // ECDD details required to complete the form.
-                        requiredForms.amlkyc.some(f => f.id === 'formC') && React.createElement(FormSection,
+                        onAmlTab('client') && requiredForms.amlkyc.some(f => f.id === 'formC') && React.createElement(FormSection,
                             { title: 'Form C — Enhanced Customer Due Diligence (Client)' },
                             React.createElement('div', {
                                 className: 'rounded-lg border border-orange-200 bg-orange-50 p-3 mb-4 text-xs text-orange-900'
@@ -2901,7 +2969,7 @@
                         // --- Form U6: Enhanced Due Diligence on Counterparty ---
                         // Same shape as Form C but for counterparty side. Auto-added when
                         // Form U5 screening flags a Yes.
-                        requiredForms.amlkyc.some(f => f.id === 'formU6') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU6') && React.createElement(FormSection,
                             { title: 'Form U6 — Enhanced Due Diligence on Counterparty' },
                             React.createElement('div', {
                                 className: 'rounded-lg border border-orange-200 bg-orange-50 p-3 mb-4 text-xs text-orange-900'
@@ -3054,7 +3122,7 @@
                         // Default banner: all 35 questions answered "No" (standard clean transaction).
                         // William taps "Show questions" only when he needs to flag a Yes anywhere.
                         // Any Yes auto-reveals the "Reason for higher risk" textarea.
-                        requiredForms.amlkyc.some(f => f.id === 'formB') && React.createElement(FormSection,
+                        onAmlTab('client') && requiredForms.amlkyc.some(f => f.id === 'formB') && React.createElement(FormSection,
                             { title: 'Form B — Screening Exceptions' },
                             React.createElement('div', {
                                 className: 'rounded-lg border-2 border-green-200 bg-green-50 p-4 text-sm text-green-900 mb-4'
@@ -3188,7 +3256,7 @@
                         // --- Form U5 Screening Exceptions (counterparty side) ---
                         // Same tap-to-flag pattern as Form B but for the counterparty.
                         // Independent answers — counterparty might be a PEP even when client isn't.
-                        requiredForms.amlkyc.some(f => f.id === 'formU5') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU5') && React.createElement(FormSection,
                             { title: 'Form U5 — Counterparty Screening Exceptions' },
                             React.createElement('div', {
                                 className: 'rounded-lg border-2 border-green-200 bg-green-50 p-4 text-sm text-green-900 mb-4'
@@ -3321,7 +3389,7 @@
                         // (i.e. counterpartyPrincipalType === 'Entity').
                         // Captures the legal person the UCP represents — entity details +
                         // 3 senior management persons + 2 beneficial owners.
-                        requiredForms.amlkyc.some(f => f.id === 'formU4') && React.createElement(FormSection,
+                        onAmlTab('counterparty') && requiredForms.amlkyc.some(f => f.id === 'formU4') && React.createElement(FormSection,
                             { title: 'Form U4 — Counterparty\u2019s Principal Entity' },
                             React.createElement('div', { className: 'rounded-lg border border-purple-200 bg-purple-50 p-3 mb-4 text-xs text-purple-900' },
                                 '\ud83d\udcdd The counterparty is acting on behalf of this entity. Capture its particulars, senior management, and beneficial owners.'),
@@ -3502,7 +3570,7 @@
                         // --- Form D: Ongoing Due Diligence ---
                         // Manual opt-in via the toggle below. Show the toggle always
                         // (even before opt-in) so users discover this option.
-                        React.createElement(FormSection, { title: 'Form D — Ongoing Due Diligence (optional)' },
+                        onAmlTab('special') && React.createElement(FormSection, { title: 'Form D — Ongoing Due Diligence (optional)' },
                             React.createElement(CheckboxField, {
                                 label: 'Generate Form D for this client (use for periodic / annual review)',
                                 checked: formData.generateFormD,
@@ -3646,7 +3714,9 @@
                             )
                         ),
 
-                        React.createElement('div', { className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-sm text-blue-900' },
+                        // Tip banner — only shown on the Common tab to keep the
+                        // other tabs focused on their forms.
+                        onAmlTab('common') && React.createElement('div', { className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-sm text-blue-900' },
                             'Tip: name, NRIC, address, and property address were already collected in the previous step — they will flow into your AML forms automatically.')
                     ),
 
