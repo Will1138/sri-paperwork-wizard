@@ -863,7 +863,7 @@
                     forms.mustSign.push({ id: commMap[formData.role], name: 'Exclusive Agency Agreement (Commercial)' });
                 }
 
-                if (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase') {
+                if (formData.transactionType === 'Sale/Purchase') {
                     const hdbSuffix = formData.propertyType === 'HDB' ? '_hdb' : '';
                     const roleKey = formData.role === 'Seller/Landlord' ? 'seller' : 'buyer';
                     const roleLabel = formData.role === 'Seller/Landlord' ? 'Seller' : 'Buyer';
@@ -891,7 +891,7 @@
                 // Intelligent AML form selection based on CDD framework
                 forms.amlkyc = getAMLFormsNeeded();
 
-                if (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase') {
+                if (formData.transactionType === 'Sale/Purchase') {
                     forms.transaction.push({ id: 'otp', name: 'Offer to Purchase (OTP)' });
                 } else if (formData.transactionType === 'Rental') {
                     forms.transaction.push(
@@ -904,7 +904,7 @@
                     forms.special.push({ id: 'womensCharter', name: "Women's Charter Checklist" });
                 }
 
-                if (formData.thresholdExceeded && (formData.transactionType === 'Sale' || formData.transactionType === 'Purchase')) {
+                if (formData.thresholdExceeded && formData.transactionType === 'Sale/Purchase') {
                     forms.special.push({ id: 'salespersonDeclaration', name: 'Salesperson Declaration (≥S$3M)' });
                 }
 
@@ -1761,7 +1761,7 @@
                         ),
                         React.createElement(FormSection, { title: '1. Transaction Type' },
                             React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                                ['Sale', 'Purchase', 'Rental', 'RoomRental'].map((type) =>
+                                ['Sale/Purchase', 'Rental', 'RoomRental'].map((type) =>
                                     React.createElement(CardButton, {
                                         key: type,
                                         selected: formData.transactionType === type,
