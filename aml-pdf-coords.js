@@ -1000,6 +1000,19 @@ window.buildAmlFieldData = function(formData, formId) {
     const isCounterpartyForm = /^formU/.test(baseForm);
     const repRole = isCounterpartyForm ? flipRole[formData.role] : toRole[formData.role];
 
+    // Joint-client support: when the wizard generates per-client copies of
+    // Form A1 / Form B (e.g. husband + wife), the form id ends with `_client2`.
+    // Swap the client* fields to read from client2* state when that suffix is present.
+    const isClient2 = /_client2$/.test(formId || '');
+    const clientName        = isClient2 ? (formData.client2Name || '')         : (formData.clientName || '');
+    const clientNRIC        = isClient2 ? (formData.client2NRIC || '')         : (formData.clientNRIC || '');
+    const clientDOB         = isClient2 ? (formData.client2DOB || '')          : (formData.clientDOB || '');
+    const clientAddress     = isClient2 ? (formData.client2Address || '')      : (formData.clientAddress || '');
+    const clientNationality = isClient2 ? (formData.client2Nationality || '')  : (formData.clientNationality || '');
+    const clientOccupation  = isClient2 ? (formData.client2Occupation || '')   : (formData.clientOccupation || '');
+    const clientIdType      = isClient2 ? (formData.client2IdType || 'NRIC')   : (formData.clientIdType || 'NRIC');
+    const clientIdOthers    = isClient2 ? (formData.client2IdOthersDetail || '') : (formData.clientIdOthersDetail || '');
+
     // Property kind for the AML form checkbox row.
     // IMPORTANT: we use `formData.propertyCategory` which is asked explicitly
     // in Step 5 (HDB / Condo / Landed / Others). DO NOT infer this from
@@ -1118,13 +1131,16 @@ window.buildAmlFieldData = function(formData, formId) {
         wcTenantName:   wcTenantName,
 
         client: {
-            fullName:       formData.clientName || '',
-            nricOrPassport: formData.clientNRIC || '',
-            dob:            formData.clientDOB || '',
-            address:        formData.clientAddress || '',
-            nationality:    formData.clientNationality || '',
-            occupation:     formData.clientOccupation || '',
-            idType:         formData.clientIdType || 'NRIC',
+            // Driven by clientName etc. (or client2Name etc. for joint-buyer copies)
+            // depending on the form id suffix — see top of this function.
+            fullName:       clientName,
+            nricOrPassport: clientNRIC,
+            dob:            clientDOB,
+            address:        clientAddress,
+            nationality:    clientNationality,
+            occupation:     clientOccupation,
+            idType:         clientIdType,
+            idOthersDetail: clientIdOthers,
             actingForSelf:            clientActingSelf,
             actingOnBehalfIndividual: clientActingIndividual,
             actingOnBehalfCorporate:  clientActingCorporate

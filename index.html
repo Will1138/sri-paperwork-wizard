@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase3-prefill"></script>
+    <script src="aml-pdf-coords.js?v=phase4-joint"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -187,6 +187,10 @@
                     clientType: null, // "Individual" or "Entity"
                     numberOfBeneficialOwners: '1',
                     clientActingOnBehalf: false,
+                    // Joint-client support: when true, the deal has TWO individual
+                    // clients (e.g. husband + wife). Forms A1 and B are generated
+                    // per-client. Only meaningful when clientType === 'Individual'.
+                    hasJointClient: false,
                     counterpartyType: null, // "Individual" or "Entity" (only if Solo)
                     counterpartyActingOnBehalf: false,
                     counterpartyPrincipalType: '',  // 'Individual' or 'Entity' — drives U3 vs U4
@@ -215,6 +219,17 @@
                     securityDeposit: '',
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
+                    // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
+                    client2Name: '',
+                    client2NRIC: '',
+                    client2Address: '',
+                    client2Contact: '',
+                    client2Nationality: '',
+                    client2DOB: '',
+                    client2Occupation: '',
+                    client2IdType: 'NRIC',
+                    client2IdOthersDetail: '',
+
                     counterpartyName: '',
                     counterpartyNRIC: '',
                     counterpartyAddress: '',
@@ -234,6 +249,7 @@
 
                     // Individual client extras (A1)
                     clientIdType: 'NRIC',               // NRIC | Passport | WorkPermit | Others
+                    clientIdOthersDetail: '',
 
                     // Entity client (A2) — only used when clientType === 'Entity'
                     entityName: '',
@@ -645,18 +661,30 @@
                 // ===== SCENARIO 1: Individual Client (Direct) =====
                 if (formData.clientType === 'Individual' && !formData.clientActingOnBehalf) {
                     forms.push(
-                        { id: 'formA1', name: 'Form A1 (Client - Individual Particulars)' },
-                        { id: 'formB', name: 'Form B (Client - Risk Assessment)' }
+                        { id: 'formA1', name: 'Form A1 (Client 1 - Individual Particulars)' },
+                        { id: 'formB',  name: 'Form B (Client 1 - Risk Assessment)' }
                     );
+                    if (formData.hasJointClient) {
+                        forms.push(
+                            { id: 'formA1_client2', name: 'Form A1 (Client 2 - Individual Particulars)' },
+                            { id: 'formB_client2',  name: 'Form B (Client 2 - Risk Assessment)' }
+                        );
+                    }
                 }
 
                 // ===== SCENARIO 2: Individual Acting on Behalf =====
                 else if (formData.clientType === 'Individual' && formData.clientActingOnBehalf) {
                     forms.push(
-                        { id: 'formA1', name: 'Form A1 (Client & Principal - Individual Particulars)' },
+                        { id: 'formA1', name: 'Form A1 (Client 1 & Principal - Individual Particulars)' },
                         { id: 'formA3', name: 'Form A3 (Acting on Behalf - Authority Details)' },
-                        { id: 'formB', name: 'Form B (Risk Assessment - Client & Principal)' }
+                        { id: 'formB',  name: 'Form B (Risk Assessment - Client 1 & Principal)' }
                     );
+                    if (formData.hasJointClient) {
+                        forms.push(
+                            { id: 'formA1_client2', name: 'Form A1 (Client 2 - Individual Particulars)' },
+                            { id: 'formB_client2',  name: 'Form B (Client 2 - Risk Assessment)' }
+                        );
+                    }
                 }
 
                 // ===== SCENARIO 3: Entity/Company Client (Direct) =====
@@ -904,6 +932,7 @@
                     // Client NRIC/passport + DOB are the bare minimum for A1/A2
                     if (formData.clientType === 'Individual') {
                         if (!formData.clientDOB || !formData.clientNationality || !formData.clientOccupation) return false;
+                        if (formData.hasJointClient && (!formData.client2Name || !formData.client2NRIC)) return false;
                     }
                     if (formData.clientType === 'Entity') {
                         if (!formData.entityName || !formData.entityUen || !formData.entityAddress) return false;
@@ -1825,6 +1854,16 @@
                                 )
                             )
                         ),
+                        // Joint-client toggle — only for individual clients (e.g. husband + wife)
+                        formData.clientType === 'Individual' && React.createElement(FormSection, { title: '7. Joint Client?' },
+                            React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
+                                'Are there two individual clients on this deal (e.g. husband and wife buying together)? When ticked, Forms A1 and B will be generated separately for each client.'),
+                            React.createElement(CheckboxField, {
+                                label: 'Yes, this is a joint deal — generate forms for two clients',
+                                checked: formData.hasJointClient,
+                                onChange: (v) => updateField('hasJointClient', v)
+                            })
+                        ),
                         formData.clientType === 'Entity' && React.createElement(FormSection, { title: '7. Number of Beneficial Owners' },
                             React.createElement('div', { className: 'flex items-center gap-4' },
                                 React.createElement('input', {
@@ -1974,7 +2013,7 @@
                                 required: true
                             })
                         ),
-                        React.createElement(FormSection, { title: 'Client Details' },
+                        React.createElement(FormSection, { title: formData.hasJointClient ? 'Client 1 Details' : 'Client Details' },
                             React.createElement(InputField, {
                                 label: 'Full Name (as per NRIC)',
                                 value: formData.clientName,
@@ -2036,6 +2075,32 @@
                                 label: 'Acting on behalf of someone else?',
                                 checked: formData.clientActingOnBehalf,
                                 onChange: (v) => updateField('clientActingOnBehalf', v)
+                            })
+                        ),
+                        // --- Client 2 (joint buyer) — only when hasJointClient is on ---
+                        formData.hasJointClient && React.createElement(FormSection, { title: 'Client 2 Details (Joint Buyer)' },
+                            React.createElement(InputField, {
+                                label: 'Full Name (as per NRIC)',
+                                value: formData.client2Name,
+                                onChange: (v) => updateField('client2Name', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'NRIC/Passport No.',
+                                value: formData.client2NRIC,
+                                onChange: (v) => updateField('client2NRIC', v),
+                                required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Address',
+                                value: formData.client2Address,
+                                onChange: (v) => updateField('client2Address', v),
+                                placeholder: 'Same as Client 1 if shared'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Contact Number',
+                                value: formData.client2Contact,
+                                onChange: (v) => updateField('client2Contact', v)
                             })
                         ),
                         React.createElement(FormSection, { title: 'Property Details' },
@@ -2216,7 +2281,8 @@
                         ),
 
                         // --- Individual Client Block (A1) ---
-                        onAmlTab('client') && formData.clientType === 'Individual' && React.createElement(FormSection, { title: 'Client KYC (Individual — for Form A1)' },
+                        onAmlTab('client') && formData.clientType === 'Individual' && React.createElement(FormSection,
+                            { title: formData.hasJointClient ? 'Client 1 KYC (Individual — for Form A1)' : 'Client KYC (Individual — for Form A1)' },
                             React.createElement(SelectField, {
                                 label: 'ID Type',
                                 value: formData.clientIdType,
@@ -2227,6 +2293,11 @@
                                     { value: 'WorkPermit', label: 'Work Permit' },
                                     { value: 'Others', label: 'Others' }
                                 ]
+                            }),
+                            formData.clientIdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.clientIdOthersDetail,
+                                onChange: (v) => updateField('clientIdOthersDetail', v)
                             }),
                             React.createElement(InputField, {
                                 label: 'Date of Birth',
@@ -2246,6 +2317,44 @@
                                 value: formData.clientOccupation,
                                 onChange: (v) => updateField('clientOccupation', v),
                                 required: true
+                            })
+                        ),
+
+                        // --- Client 2 KYC (joint buyer, Individual only) ---
+                        onAmlTab('client') && formData.clientType === 'Individual' && formData.hasJointClient &&
+                        React.createElement(FormSection,
+                            { title: 'Client 2 KYC (Joint Buyer — for Form A1, second copy)' },
+                            React.createElement(SelectField, {
+                                label: 'ID Type',
+                                value: formData.client2IdType,
+                                onChange: (v) => updateField('client2IdType', v),
+                                options: [
+                                    { value: 'NRIC', label: 'NRIC' },
+                                    { value: 'Passport', label: 'Passport' },
+                                    { value: 'WorkPermit', label: 'Work Permit' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.client2IdType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify ID Type',
+                                value: formData.client2IdOthersDetail,
+                                onChange: (v) => updateField('client2IdOthersDetail', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Birth',
+                                value: formData.client2DOB,
+                                onChange: (v) => updateField('client2DOB', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Nationality',
+                                value: formData.client2Nationality,
+                                onChange: (v) => updateField('client2Nationality', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Occupation',
+                                value: formData.client2Occupation,
+                                onChange: (v) => updateField('client2Occupation', v)
                             })
                         ),
 
