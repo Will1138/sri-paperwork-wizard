@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=ui-c-u6"></script>
+    <script src="aml-pdf-coords.js?v=ui-c-u6-d-u4"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -185,6 +185,8 @@
                     clientActingOnBehalf: false,
                     counterpartyType: null, // "Individual" or "Entity" (only if Solo)
                     counterpartyActingOnBehalf: false,
+                    counterpartyPrincipalType: '',  // 'Individual' or 'Entity' — drives U3 vs U4
+                    generateFormD: false,            // Manual trigger: opt in for ongoing review
                     selectedForms: {},
                     thresholdExceeded: false,
                     agentName: '',
@@ -654,6 +656,12 @@
                 //   U5 = Risk Determination & Screening Checklist (parallel to Form B)
                 //   U6 = Enhanced Due Diligence (parallel to Form C)
                 if (formData.cobroke === 'Solo' && formData.counterpartyType) {
+                    // Helper: pick U3 (individual principal) or U4 (entity principal)
+                    // based on what William chose in question 11.
+                    const principalForm = formData.counterpartyPrincipalType === 'Entity'
+                        ? { id: 'formU4', name: 'Form U4 (Counterparty Acting on Behalf — Entity Principal)' }
+                        : { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf — Individual Principal)' };
+
                     // Individual counterparty (direct)
                     if (formData.counterpartyType === 'Individual' && !formData.counterpartyActingOnBehalf) {
                         forms.push(
@@ -665,7 +673,7 @@
                     else if (formData.counterpartyType === 'Individual' && formData.counterpartyActingOnBehalf) {
                         forms.push(
                             { id: 'formU1', name: 'Form U1 (Counterparty & Principal - Individual Particulars)' },
-                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf - Individual)' },
+                            principalForm,
                             { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty & Principal)' }
                         );
                     }
@@ -680,10 +688,15 @@
                     else if (formData.counterpartyType === 'Entity' && formData.counterpartyActingOnBehalf) {
                         forms.push(
                             { id: 'formU2', name: 'Form U2 (Counterparty - Entity Particulars)' },
-                            { id: 'formU3', name: 'Form U3 (Counterparty Acting on Behalf)' },
+                            principalForm,
                             { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty Entity)' }
                         );
                     }
+                }
+
+                // Manual opt-in: Form D for periodic ongoing review
+                if (formData.generateFormD) {
+                    forms.push({ id: 'formD', name: 'Form D (Ongoing Due Diligence — periodic review)' });
                 }
 
                 // ===== ECDD AUTO-TRIGGER =====
@@ -1752,6 +1765,28 @@
                                     checked: formData.counterpartyActingOnBehalf,
                                     onChange: (v) => updateField('counterpartyActingOnBehalf', v)
                                 })
+                            )
+                        ),
+                        // Drill-down: when counterparty acts on behalf, ask whether the principal
+                        // is an individual (→ Form U3) or another entity (→ Form U4).
+                        formData.cobroke === 'Solo' && formData.counterpartyType && formData.counterpartyActingOnBehalf &&
+                        React.createElement(FormSection, { title: '11. Counterparty\u2019s Principal — Type' },
+                            React.createElement('p', { className: 'text-sm text-gray-600 mb-3' },
+                                'Who is the counterparty acting on behalf of? Drives whether we generate Form U3 (individual principal) or Form U4 (entity / legal person principal).'),
+                            React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                                ['Individual', 'Entity'].map((type) =>
+                                    React.createElement(CardButton, {
+                                        key: type,
+                                        selected: formData.counterpartyPrincipalType === type,
+                                        onClick: () => updateField('counterpartyPrincipalType', type)
+                                    },
+                                        React.createElement('div', null,
+                                            React.createElement('div', { className: 'font-semibold text-gray-800' }, type),
+                                            React.createElement('div', { className: 'text-xs text-gray-500 mt-1' },
+                                                type === 'Individual' ? 'Form U3' : 'Form U4')
+                                        )
+                                    )
+                                )
                             )
                         )
                     ),
@@ -3277,6 +3312,336 @@
                                         className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
                                         placeholder: 'Explain the basis for the higher-risk determination on the counterparty — this text fills Page 3 of Form U5.'
                                     })
+                                )
+                            )
+                        ),
+
+                        // --- Form U4: Counterparty's Principal Entity ---
+                        // Only renders when counterparty acts on behalf of an entity
+                        // (i.e. counterpartyPrincipalType === 'Entity').
+                        // Captures the legal person the UCP represents — entity details +
+                        // 3 senior management persons + 2 beneficial owners.
+                        requiredForms.amlkyc.some(f => f.id === 'formU4') && React.createElement(FormSection,
+                            { title: 'Form U4 — Counterparty\u2019s Principal Entity' },
+                            React.createElement('div', { className: 'rounded-lg border border-purple-200 bg-purple-50 p-3 mb-4 text-xs text-purple-900' },
+                                '\ud83d\udcdd The counterparty is acting on behalf of this entity. Capture its particulars, senior management, and beneficial owners.'),
+
+                            React.createElement(InputField, {
+                                label: 'Entity / Company Name (as per ACRA)',
+                                value: formData.counterpartyPrincipalEntityName,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityName', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'UEN / Registration No.',
+                                value: formData.counterpartyPrincipalEntityUen,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityUen', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Registered Office Address',
+                                value: formData.counterpartyPrincipalEntityAddress,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Principal Address (if different)',
+                                value: formData.counterpartyPrincipalEntityPrincipalAddress,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityPrincipalAddress', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Date of Incorporation',
+                                value: formData.counterpartyPrincipalEntityDateOfIncorp,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityDateOfIncorp', v),
+                                type: 'date'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Country of Incorporation',
+                                value: formData.counterpartyPrincipalEntityCountry,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityCountry', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Telephone',
+                                value: formData.counterpartyPrincipalEntityPhone,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityPhone', v)
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Email',
+                                value: formData.counterpartyPrincipalEntityEmail,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityEmail', v),
+                                type: 'email'
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Main Business Activity',
+                                value: formData.counterpartyPrincipalEntityMainBusiness,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityMainBusiness', v)
+                            }),
+                            React.createElement(SelectField, {
+                                label: 'Entity Type',
+                                value: formData.counterpartyPrincipalEntityType,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityType', v),
+                                options: [
+                                    { value: 'Company', label: 'Company' },
+                                    { value: 'LimitedPartnership', label: 'Limited Partnership' },
+                                    { value: 'LLP', label: 'Limited Liability Partnership' },
+                                    { value: 'Corporation', label: 'Corporation' },
+                                    { value: 'Trust', label: 'Trust' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            formData.counterpartyPrincipalEntityType === 'Others' && React.createElement(InputField, {
+                                label: 'Specify Entity Type',
+                                value: formData.counterpartyPrincipalEntityTypeOthersDetail,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityTypeOthersDetail', v)
+                            }),
+                            React.createElement(CheckboxField, {
+                                label: 'UCP is authorised to act on behalf of this Legal Person',
+                                checked: formData.counterpartyPrincipalEntityAuthorised,
+                                onChange: (v) => updateField('counterpartyPrincipalEntityAuthorised', v)
+                            }),
+
+                            // Senior Management Persons 1-3 — render in a loop
+                            ...[1, 2, 3].map(n =>
+                                React.createElement('div', { key: 'u4-p' + n, className: 'mt-4 pt-4 border-t border-gray-200' },
+                                    React.createElement('h4', { className: 'font-semibold mb-2 text-gray-700' },
+                                        'Senior Management Person ' + n + (n > 1 ? ' (optional)' : '')),
+                                    React.createElement(InputField, {
+                                        label: 'Designation',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'Designation'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'Designation', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Full Name',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'Name'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'Name', v)
+                                    }),
+                                    React.createElement(SelectField, {
+                                        label: 'ID Type',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'IdType'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'IdType', v),
+                                        options: [
+                                            { value: 'NRIC', label: 'NRIC' },
+                                            { value: 'Passport', label: 'Passport' },
+                                            { value: 'WorkPermit', label: 'Work Permit' },
+                                            { value: 'Others', label: 'Others' }
+                                        ]
+                                    }),
+                                    formData['counterpartyPrincipalEntityP' + n + 'IdType'] === 'Others' &&
+                                    React.createElement(InputField, {
+                                        label: 'Specify ID Type',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'IdOthersDetail'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'IdOthersDetail', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'NRIC / Passport No.',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'Nric'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'Nric', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Nationality',
+                                        value: formData['counterpartyPrincipalEntityP' + n + 'Nationality'],
+                                        onChange: (v) => updateField('counterpartyPrincipalEntityP' + n + 'Nationality', v)
+                                    })
+                                )
+                            ),
+
+                            // Beneficial Owners 1 & 2
+                            ...[1, 2].map(n =>
+                                React.createElement('div', { key: 'u4-bo' + n, className: 'mt-4 pt-4 border-t border-gray-200' },
+                                    React.createElement('h4', { className: 'font-semibold mb-2 text-gray-700' },
+                                        'Beneficial Owner ' + n + (n > 1 ? ' (optional)' : '')),
+                                    React.createElement(InputField, {
+                                        label: 'Full Name',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Name'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Name', v)
+                                    }),
+                                    React.createElement(SelectField, {
+                                        label: 'ID Type',
+                                        value: formData['counterpartyPrincipalBo' + n + 'IdType'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'IdType', v),
+                                        options: [
+                                            { value: 'NRIC', label: 'NRIC' },
+                                            { value: 'Passport', label: 'Passport' },
+                                            { value: 'WorkPermit', label: 'Work Permit' },
+                                            { value: 'Others', label: 'Others' }
+                                        ]
+                                    }),
+                                    formData['counterpartyPrincipalBo' + n + 'IdType'] === 'Others' &&
+                                    React.createElement(InputField, {
+                                        label: 'Specify ID Type',
+                                        value: formData['counterpartyPrincipalBo' + n + 'IdOthersDetail'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'IdOthersDetail', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'NRIC / Passport No.',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Nric'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Nric', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Date of Birth',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Dob'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Dob', v),
+                                        type: 'date'
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Residential Address',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Address'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Address', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Nationality',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Nationality'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Nationality', v)
+                                    }),
+                                    React.createElement(InputField, {
+                                        label: 'Occupation',
+                                        value: formData['counterpartyPrincipalBo' + n + 'Occupation'],
+                                        onChange: (v) => updateField('counterpartyPrincipalBo' + n + 'Occupation', v)
+                                    })
+                                )
+                            )
+                        ),
+
+                        // --- Form D: Ongoing Due Diligence ---
+                        // Manual opt-in via the toggle below. Show the toggle always
+                        // (even before opt-in) so users discover this option.
+                        React.createElement(FormSection, { title: 'Form D — Ongoing Due Diligence (optional)' },
+                            React.createElement(CheckboxField, {
+                                label: 'Generate Form D for this client (use for periodic / annual review)',
+                                checked: formData.generateFormD,
+                                onChange: (v) => updateField('generateFormD', v)
+                            }),
+                            formData.generateFormD && React.createElement('div', { className: 'mt-6 space-y-4' },
+                                React.createElement('p', { className: 'text-xs text-gray-500' },
+                                    'Form D is a periodic check that previously-collected information is still current.'),
+
+                                React.createElement('h4', { className: 'font-semibold mt-2 text-gray-700' }, 'Section A — Beneficial Owners'),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Beneficial Owners (Individual)'),
+                                    React.createElement('textarea', {
+                                        rows: 2,
+                                        value: (formData.formD || {}).individualBOs,
+                                        onChange: (e) => updateNestedForm('formD', 'individualBOs', e.target.value),
+                                        className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
+                                        placeholder: 'List individual BOs (or leave blank)'
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Beneficial Owners (Entity)'),
+                                    React.createElement('textarea', {
+                                        rows: 2,
+                                        value: (formData.formD || {}).entityBOs,
+                                        onChange: (e) => updateNestedForm('formD', 'entityBOs', e.target.value),
+                                        className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500',
+                                        placeholder: 'List entity BOs (or leave blank)'
+                                    })
+                                ),
+
+                                React.createElement('h4', { className: 'font-semibold mt-4 text-gray-700' }, 'Section B — Business Relationship'),
+                                React.createElement(InputField, {
+                                    label: 'Nature of Relationship',
+                                    value: (formData.formD || {}).relationshipNature,
+                                    onChange: (v) => updateNestedForm('formD', 'relationshipNature', v)
+                                }),
+                                React.createElement(InputField, {
+                                    label: 'Date Relationship Commenced',
+                                    value: (formData.formD || {}).relationshipDate,
+                                    onChange: (v) => updateNestedForm('formD', 'relationshipDate', v),
+                                    type: 'date'
+                                }),
+                                React.createElement(InputField, {
+                                    label: 'Transaction Frequency',
+                                    value: (formData.formD || {}).transactionFrequency,
+                                    onChange: (v) => updateNestedForm('formD', 'transactionFrequency', v),
+                                    placeholder: 'e.g. Annual, One-off'
+                                }),
+
+                                React.createElement('h4', { className: 'font-semibold mt-4 text-gray-700' }, 'Section C — Risk Assessment'),
+                                React.createElement(InputField, {
+                                    label: 'Frequency of Review',
+                                    value: (formData.formD || {}).reviewFrequency,
+                                    onChange: (v) => updateNestedForm('formD', 'reviewFrequency', v),
+                                    placeholder: 'e.g. Yearly'
+                                }),
+                                React.createElement(InputField, {
+                                    label: 'Last Review Date',
+                                    value: (formData.formD || {}).lastReviewDate,
+                                    onChange: (v) => updateNestedForm('formD', 'lastReviewDate', v),
+                                    type: 'date'
+                                }),
+                                React.createElement(InputField, {
+                                    label: 'Next Review Due',
+                                    value: (formData.formD || {}).nextReviewDue,
+                                    onChange: (v) => updateNestedForm('formD', 'nextReviewDue', v),
+                                    type: 'date'
+                                }),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Level of Risk and Reasons for Conclusion'),
+                                    React.createElement('textarea', {
+                                        rows: 3,
+                                        value: (formData.formD || {}).riskLevelReasons,
+                                        onChange: (e) => updateNestedForm('formD', 'riskLevelReasons', e.target.value),
+                                        className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                    })
+                                ),
+
+                                React.createElement('h4', { className: 'font-semibold mt-4 text-gray-700' }, 'Section D.1 — Information Currency'),
+                                React.createElement(SelectField, {
+                                    label: 'Are all previously-obtained client documents and information still current?',
+                                    value: (formData.formD || {}).docsCurrent,
+                                    onChange: (v) => updateNestedForm('formD', 'docsCurrent', v),
+                                    options: [
+                                        { value: 'Yes', label: 'Yes' },
+                                        { value: 'No',  label: 'No' }
+                                    ]
+                                }),
+                                (formData.formD || {}).docsCurrent === 'No' && React.createElement('div', { className: 'space-y-2' },
+                                    React.createElement('p', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'What changed? (tick all that apply)'),
+                                    renderMultiSelect('formD', 'changedDetails', [
+                                        { value: 'IDDocuments',          label: 'Client\u2019s identification documents (e.g. citizenship)' },
+                                        { value: 'ResidentialAddress',   label: 'Residential address' },
+                                        { value: 'BeneficialOwners',     label: 'List of Beneficial Owners' },
+                                        { value: 'SourceOfFunds',        label: 'Source of wealth / funds' },
+                                        { value: 'Others',               label: 'Others (specify below)' }
+                                    ]),
+                                    ((formData.formD || {}).changedDetails || []).includes('Others') && React.createElement(InputField, {
+                                        label: 'Specify Other Change',
+                                        value: (formData.formD || {}).changeOthersDetail,
+                                        onChange: (v) => updateNestedForm('formD', 'changeOthersDetail', v)
+                                    })
+                                ),
+                                React.createElement(CheckboxField, {
+                                    label: 'I have obtained a copy of the document with the updated information',
+                                    checked: (formData.formD || {}).copyObtained,
+                                    onChange: (v) => updateNestedForm('formD', 'copyObtained', v)
+                                }),
+
+                                React.createElement('h4', { className: 'font-semibold mt-4 text-gray-700' }, 'Section D.2 — Transaction Monitoring'),
+                                React.createElement(SelectField, {
+                                    label: 'Are recent transactions consistent with the known client profile?',
+                                    value: (formData.formD || {}).transactionsConsistent,
+                                    onChange: (v) => updateNestedForm('formD', 'transactionsConsistent', v),
+                                    options: [
+                                        { value: 'Yes', label: 'Yes' },
+                                        { value: 'No',  label: 'No' }
+                                    ]
+                                }),
+                                (formData.formD || {}).transactionsConsistent === 'No' && React.createElement('div', { className: 'space-y-3' },
+                                    React.createElement('div', null,
+                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Unusual Patterns Identified'),
+                                        React.createElement('textarea', {
+                                            rows: 2,
+                                            value: (formData.formD || {}).unusualPatterns,
+                                            onChange: (e) => updateNestedForm('formD', 'unusualPatterns', e.target.value),
+                                            className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                        })
+                                    ),
+                                    React.createElement('div', null,
+                                        React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Actions Taken'),
+                                        React.createElement('textarea', {
+                                            rows: 2,
+                                            value: (formData.formD || {}).actionsTaken,
+                                            onChange: (e) => updateNestedForm('formD', 'actionsTaken', e.target.value),
+                                            className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                        })
+                                    )
                                 )
                             )
                         ),
