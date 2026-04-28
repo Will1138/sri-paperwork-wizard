@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=autosave-1"></script>
+    <script src="aml-pdf-coords.js?v=ui-c-u6"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -532,6 +532,38 @@
                 updateFormU5(section, arr);
             };
 
+            // Generic "update one key inside a nested form-state object" helper.
+            // Used for formC / formU6 / formD where each form has its own sub-object.
+            const updateNestedForm = (formKey, key, value) => {
+                setFormData({
+                    type: 'SET_FIELD',
+                    field: formKey,
+                    value: { ...(formData[formKey] || {}), [key]: value }
+                });
+            };
+
+            // Toggle membership in a multi-select array (source of funds, source of
+            // wealth, supporting docs, etc.). Adds the item if absent, removes if present.
+            const toggleArrayItem = (formKey, arrayKey, item) => {
+                const current = (formData[formKey] && formData[formKey][arrayKey]) || [];
+                const next = current.includes(item) ? current.filter(x => x !== item) : [...current, item];
+                updateNestedForm(formKey, arrayKey, next);
+            };
+
+            // Helper to render a multi-select checkbox group inline. Cleans up the JSX
+            // for source-of-funds / source-of-wealth / supporting-docs pickers.
+            const renderMultiSelect = (formKey, arrayKey, options) =>
+                React.createElement('div', { className: 'space-y-2' },
+                    options.map(opt =>
+                        React.createElement(CheckboxField, {
+                            key: opt.value,
+                            label: opt.label,
+                            checked: ((formData[formKey] && formData[formKey][arrayKey]) || []).includes(opt.value),
+                            onChange: () => toggleArrayItem(formKey, arrayKey, opt.value)
+                        })
+                    )
+                );
+
             const updateForm = (formName, checked) => {
                 setFormData({
                     type: 'SET_FIELD',
@@ -652,6 +684,24 @@
                             { id: 'formU5', name: 'Form U5 (Risk Screening - Counterparty Entity)' }
                         );
                     }
+                }
+
+                // ===== ECDD AUTO-TRIGGER =====
+                // If client screening (Form B) has any Yes flag, ECDD is required → add Form C.
+                // Same for counterparty (Form U5 → Form U6).
+                const formB = formData.formB || {};
+                if (formB.showExceptions && (
+                    (formB.s1 || []).some(v => v === 'Yes') ||
+                    (formB.s2 || []).some(v => v === 'Yes')
+                )) {
+                    forms.push({ id: 'formC', name: 'Form C (Enhanced Customer Due Diligence — auto-added: client screening flagged)' });
+                }
+                const formU5 = formData.formU5 || {};
+                if (formU5.showExceptions && (
+                    (formU5.s1 || []).some(v => v === 'Yes') ||
+                    (formU5.s2 || []).some(v => v === 'Yes')
+                )) {
+                    forms.push({ id: 'formU6', name: 'Form U6 (Enhanced Due Diligence on Counterparty — auto-added: counterparty screening flagged)' });
                 }
 
                 return forms;
@@ -2660,6 +2710,308 @@
                                 value: formData.counterpartyBo2Occupation,
                                 onChange: (v) => updateField('counterpartyBo2Occupation', v)
                             })
+                        ),
+
+                        // --- Form C: Enhanced Customer Due Diligence (Client) ---
+                        // Auto-added when Form B screening flags any Yes. UI captures the
+                        // ECDD details required to complete the form.
+                        requiredForms.amlkyc.some(f => f.id === 'formC') && React.createElement(FormSection,
+                            { title: 'Form C — Enhanced Customer Due Diligence (Client)' },
+                            React.createElement('div', {
+                                className: 'rounded-lg border border-orange-200 bg-orange-50 p-3 mb-4 text-xs text-orange-900'
+                            }, '\u26a0\ufe0f Auto-added because client screening flagged a higher risk. Capture source of funds and wealth so we can complete ECDD.'),
+
+                            React.createElement('h4', { className: 'font-semibold mb-2 text-gray-700' }, 'Section A — Transaction'),
+                            React.createElement(SelectField, {
+                                label: 'Purpose of Transaction',
+                                value: (formData.formC || {}).purpose,
+                                onChange: (v) => updateNestedForm('formC', 'purpose', v),
+                                options: [
+                                    { value: 'OwnStay', label: 'Own Stay' },
+                                    { value: 'Investment', label: 'Investment' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            (formData.formC || {}).purpose === 'Others' && React.createElement(InputField, {
+                                label: 'Specify Purpose',
+                                value: (formData.formC || {}).purposeOthersDetail,
+                                onChange: (v) => updateNestedForm('formC', 'purposeOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section B — Source of Funds'),
+                            React.createElement(InputField, {
+                                label: 'Total Transaction Amount (S$)',
+                                value: (formData.formC || {}).transactionAmount,
+                                onChange: (v) => updateNestedForm('formC', 'transactionAmount', v)
+                            }),
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Primary source of funds (tick all that apply):'),
+                            renderMultiSelect('formC', 'fundSources', [
+                                { value: 'PersonalSavings',     label: 'Personal Savings' },
+                                { value: 'SaleOfProperty',      label: 'Sale of Property' },
+                                { value: 'BusinessIncome',      label: 'Business Income' },
+                                { value: 'InvestmentReturns',   label: 'Investment Returns' },
+                                { value: 'Loan',                label: 'Loan' },
+                                { value: 'CPFFunds',            label: 'CPF Funds' },
+                                { value: 'GiftInheritance',     label: 'Gift / Inheritance' },
+                                { value: 'Others',              label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formC || {}).fundSources || []).includes('Loan') && React.createElement(InputField, {
+                                label: 'Loan — Bank / Institution',
+                                value: (formData.formC || {}).fundLoanInstitution,
+                                onChange: (v) => updateNestedForm('formC', 'fundLoanInstitution', v)
+                            }),
+                            ((formData.formC || {}).fundSources || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Source of Funds',
+                                value: (formData.formC || {}).fundSourcesOthersDetail,
+                                onChange: (v) => updateNestedForm('formC', 'fundSourcesOthersDetail', v)
+                            }),
+
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Supporting documents (tick all that apply):'),
+                            renderMultiSelect('formC', 'fundSupportingDocs', [
+                                { value: 'BankStatements',         label: 'Bank Statements' },
+                                { value: 'CPFStatement',           label: 'CPF Statement' },
+                                { value: 'SalePurchaseAgreement',  label: 'Sale & Purchase Agreement of previous property' },
+                                { value: 'LoanApprovalLetter',     label: 'Loan Approval Letter' },
+                                { value: 'InvestmentPortfolio',    label: 'Investment Portfolio Statements' },
+                                { value: 'GiftDeed',               label: 'Gift Deed / Inheritance Documents' },
+                                { value: 'Others',                 label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formC || {}).fundSupportingDocs || []).includes('BankStatements') && React.createElement(InputField, {
+                                label: 'Bank Statements — number of months',
+                                value: (formData.formC || {}).bankStatementMonths,
+                                onChange: (v) => updateNestedForm('formC', 'bankStatementMonths', v)
+                            }),
+                            ((formData.formC || {}).fundSupportingDocs || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Supporting Document',
+                                value: (formData.formC || {}).fundSupportingDocsOthersDetail,
+                                onChange: (v) => updateNestedForm('formC', 'fundSupportingDocsOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section C — Source of Wealth'),
+                            React.createElement(InputField, {
+                                label: 'Estimated Total Net Worth (S$)',
+                                value: (formData.formC || {}).wealthNetWorth,
+                                onChange: (v) => updateNestedForm('formC', 'wealthNetWorth', v)
+                            }),
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Primary sources of wealth (tick all that apply):'),
+                            renderMultiSelect('formC', 'wealthSources', [
+                                { value: 'BusinessOwnership',  label: 'Business Ownership' },
+                                { value: 'EmploymentIncome',   label: 'Employment Income' },
+                                { value: 'Investments',        label: 'Investments' },
+                                { value: 'Inheritance',        label: 'Inheritance' },
+                                { value: 'PropertyPortfolio',  label: 'Property Portfolio' },
+                                { value: 'Others',             label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formC || {}).wealthSources || []).includes('BusinessOwnership') && React.createElement(InputField, {
+                                label: 'Business Ownership — Company Name',
+                                value: (formData.formC || {}).wealthBusinessName,
+                                onChange: (v) => updateNestedForm('formC', 'wealthBusinessName', v)
+                            }),
+                            ((formData.formC || {}).wealthSources || []).includes('Investments') && React.createElement(InputField, {
+                                label: 'Investments — Type',
+                                value: (formData.formC || {}).wealthInvestmentType,
+                                onChange: (v) => updateNestedForm('formC', 'wealthInvestmentType', v)
+                            }),
+                            ((formData.formC || {}).wealthSources || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Source of Wealth',
+                                value: (formData.formC || {}).wealthSourcesOthersDetail,
+                                onChange: (v) => updateNestedForm('formC', 'wealthSourcesOthersDetail', v)
+                            }),
+
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Wealth supporting documents (tick all that apply):'),
+                            renderMultiSelect('formC', 'wealthSupportingDocs', [
+                                { value: 'CompanyFinancialStatements', label: 'Company Financial Statements' },
+                                { value: 'EmploymentLetter',           label: 'Employment Letter / Pay Slips' },
+                                { value: 'TaxReturns',                 label: 'Tax Returns' },
+                                { value: 'InvestmentCertificates',     label: 'Investment Certificates' },
+                                { value: 'PropertyOwnership',          label: 'Property Ownership Documents' },
+                                { value: 'Others',                     label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formC || {}).wealthSupportingDocs || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Wealth Supporting Document',
+                                value: (formData.formC || {}).wealthSupportingDocsOthersDetail,
+                                onChange: (v) => updateNestedForm('formC', 'wealthSupportingDocsOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section D — Recommendation'),
+                            React.createElement(SelectField, {
+                                label: 'RES\u2019s Recommendation',
+                                value: (formData.formC || {}).recommendation,
+                                onChange: (v) => updateNestedForm('formC', 'recommendation', v),
+                                options: [
+                                    { value: 'Proceed',     label: 'Recommended to proceed' },
+                                    { value: 'NotProceed',  label: 'Not recommended to proceed' }
+                                ]
+                            }),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Basis for High-Risk Rating'),
+                                React.createElement('textarea', {
+                                    rows: 3,
+                                    value: (formData.formC || {}).highRiskBasis,
+                                    onChange: (e) => updateNestedForm('formC', 'highRiskBasis', e.target.value),
+                                    className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                })
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Reasons for Proceeding'),
+                                React.createElement('textarea', {
+                                    rows: 3,
+                                    value: (formData.formC || {}).proceedReasons,
+                                    onChange: (e) => updateNestedForm('formC', 'proceedReasons', e.target.value),
+                                    className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                })
+                            )
+                        ),
+
+                        // --- Form U6: Enhanced Due Diligence on Counterparty ---
+                        // Same shape as Form C but for counterparty side. Auto-added when
+                        // Form U5 screening flags a Yes.
+                        requiredForms.amlkyc.some(f => f.id === 'formU6') && React.createElement(FormSection,
+                            { title: 'Form U6 — Enhanced Due Diligence on Counterparty' },
+                            React.createElement('div', {
+                                className: 'rounded-lg border border-orange-200 bg-orange-50 p-3 mb-4 text-xs text-orange-900'
+                            }, '\u26a0\ufe0f Auto-added because counterparty screening flagged a higher risk. Capture counterparty source of funds and wealth.'),
+
+                            React.createElement('h4', { className: 'font-semibold mb-2 text-gray-700' }, 'Section A — Transaction'),
+                            React.createElement(SelectField, {
+                                label: 'Purpose of Transaction',
+                                value: (formData.formU6 || {}).purpose,
+                                onChange: (v) => updateNestedForm('formU6', 'purpose', v),
+                                options: [
+                                    { value: 'OwnStay', label: 'Own Stay' },
+                                    { value: 'Investment', label: 'Investment' },
+                                    { value: 'Others', label: 'Others' }
+                                ]
+                            }),
+                            (formData.formU6 || {}).purpose === 'Others' && React.createElement(InputField, {
+                                label: 'Specify Purpose',
+                                value: (formData.formU6 || {}).purposeOthersDetail,
+                                onChange: (v) => updateNestedForm('formU6', 'purposeOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section B — Source of Funds'),
+                            React.createElement(InputField, {
+                                label: 'Total Transaction Amount (S$)',
+                                value: (formData.formU6 || {}).transactionAmount,
+                                onChange: (v) => updateNestedForm('formU6', 'transactionAmount', v)
+                            }),
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Primary source of funds (tick all that apply):'),
+                            renderMultiSelect('formU6', 'fundSources', [
+                                { value: 'PersonalSavings',     label: 'Personal Savings' },
+                                { value: 'SaleOfProperty',      label: 'Sale of Property' },
+                                { value: 'BusinessIncome',      label: 'Business Income' },
+                                { value: 'InvestmentReturns',   label: 'Investment Returns' },
+                                { value: 'Loan',                label: 'Loan' },
+                                { value: 'CPFFunds',            label: 'CPF Funds' },
+                                { value: 'GiftInheritance',     label: 'Gift / Inheritance' },
+                                { value: 'Others',              label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formU6 || {}).fundSources || []).includes('Loan') && React.createElement(InputField, {
+                                label: 'Loan — Bank / Institution',
+                                value: (formData.formU6 || {}).fundLoanInstitution,
+                                onChange: (v) => updateNestedForm('formU6', 'fundLoanInstitution', v)
+                            }),
+                            ((formData.formU6 || {}).fundSources || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Source of Funds',
+                                value: (formData.formU6 || {}).fundSourcesOthersDetail,
+                                onChange: (v) => updateNestedForm('formU6', 'fundSourcesOthersDetail', v)
+                            }),
+
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Supporting documents (tick all that apply):'),
+                            renderMultiSelect('formU6', 'fundSupportingDocs', [
+                                { value: 'BankStatements',         label: 'Bank Statements' },
+                                { value: 'CPFStatement',           label: 'CPF Statement' },
+                                { value: 'SalePurchaseAgreement',  label: 'Sale & Purchase Agreement of previous property' },
+                                { value: 'LoanApprovalLetter',     label: 'Loan Approval Letter' },
+                                { value: 'InvestmentPortfolio',    label: 'Investment Portfolio Statements' },
+                                { value: 'GiftDeed',               label: 'Gift Deed / Inheritance Documents' },
+                                { value: 'Others',                 label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formU6 || {}).fundSupportingDocs || []).includes('BankStatements') && React.createElement(InputField, {
+                                label: 'Bank Statements — number of months',
+                                value: (formData.formU6 || {}).bankStatementMonths,
+                                onChange: (v) => updateNestedForm('formU6', 'bankStatementMonths', v)
+                            }),
+                            ((formData.formU6 || {}).fundSupportingDocs || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Supporting Document',
+                                value: (formData.formU6 || {}).fundSupportingDocsOthersDetail,
+                                onChange: (v) => updateNestedForm('formU6', 'fundSupportingDocsOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section C — Source of Wealth'),
+                            React.createElement(InputField, {
+                                label: 'Estimated Total Net Worth (S$)',
+                                value: (formData.formU6 || {}).wealthNetWorth,
+                                onChange: (v) => updateNestedForm('formU6', 'wealthNetWorth', v)
+                            }),
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Primary sources of wealth (tick all that apply):'),
+                            renderMultiSelect('formU6', 'wealthSources', [
+                                { value: 'BusinessOwnership',  label: 'Business Ownership' },
+                                { value: 'EmploymentIncome',   label: 'Employment Income' },
+                                { value: 'Investments',        label: 'Investments' },
+                                { value: 'Inheritance',        label: 'Inheritance' },
+                                { value: 'PropertyPortfolio',  label: 'Property Portfolio' },
+                                { value: 'Others',             label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formU6 || {}).wealthSources || []).includes('BusinessOwnership') && React.createElement(InputField, {
+                                label: 'Business Ownership — Company Name',
+                                value: (formData.formU6 || {}).wealthBusinessName,
+                                onChange: (v) => updateNestedForm('formU6', 'wealthBusinessName', v)
+                            }),
+                            ((formData.formU6 || {}).wealthSources || []).includes('Investments') && React.createElement(InputField, {
+                                label: 'Investments — Type',
+                                value: (formData.formU6 || {}).wealthInvestmentType,
+                                onChange: (v) => updateNestedForm('formU6', 'wealthInvestmentType', v)
+                            }),
+                            ((formData.formU6 || {}).wealthSources || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Source of Wealth',
+                                value: (formData.formU6 || {}).wealthSourcesOthersDetail,
+                                onChange: (v) => updateNestedForm('formU6', 'wealthSourcesOthersDetail', v)
+                            }),
+
+                            React.createElement('p', { className: 'text-sm font-medium text-gray-700 mt-3 mb-2' }, 'Wealth supporting documents (tick all that apply):'),
+                            renderMultiSelect('formU6', 'wealthSupportingDocs', [
+                                { value: 'CompanyFinancialStatements', label: 'Company Financial Statements' },
+                                { value: 'EmploymentLetter',           label: 'Employment Letter / Pay Slips' },
+                                { value: 'TaxReturns',                 label: 'Tax Returns' },
+                                { value: 'InvestmentCertificates',     label: 'Investment Certificates' },
+                                { value: 'PropertyOwnership',          label: 'Property Ownership Documents' },
+                                { value: 'Others',                     label: 'Others (specify below)' }
+                            ]),
+                            ((formData.formU6 || {}).wealthSupportingDocs || []).includes('Others') && React.createElement(InputField, {
+                                label: 'Specify Other Wealth Supporting Document',
+                                value: (formData.formU6 || {}).wealthSupportingDocsOthersDetail,
+                                onChange: (v) => updateNestedForm('formU6', 'wealthSupportingDocsOthersDetail', v)
+                            }),
+
+                            React.createElement('h4', { className: 'font-semibold mt-4 mb-2 text-gray-700' }, 'Section D — Recommendation'),
+                            React.createElement(SelectField, {
+                                label: 'RES\u2019s Recommendation',
+                                value: (formData.formU6 || {}).recommendation,
+                                onChange: (v) => updateNestedForm('formU6', 'recommendation', v),
+                                options: [
+                                    { value: 'Proceed',     label: 'Recommended to proceed' },
+                                    { value: 'NotProceed',  label: 'Not recommended to proceed' }
+                                ]
+                            }),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Basis for High-Risk Rating'),
+                                React.createElement('textarea', {
+                                    rows: 3,
+                                    value: (formData.formU6 || {}).highRiskBasis,
+                                    onChange: (e) => updateNestedForm('formU6', 'highRiskBasis', e.target.value),
+                                    className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                })
+                            ),
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Reasons for Proceeding'),
+                                React.createElement('textarea', {
+                                    rows: 3,
+                                    value: (formData.formU6 || {}).proceedReasons,
+                                    onChange: (e) => updateNestedForm('formU6', 'proceedReasons', e.target.value),
+                                    className: 'w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 focus:ring-purple-500'
+                                })
+                            )
                         ),
 
                         // --- Form B Screening Exceptions (tap-to-flag) ---
