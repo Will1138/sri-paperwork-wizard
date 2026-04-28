@@ -405,7 +405,7 @@ window.AML_FORM_COORDS = {
                 { x: 344.3, y: 651.7, key: 'client.nricOrPassport' }
             ],
             3: [
-                { x:  78.1, y: 580.0, key: 'formB.riskReason' },
+                { x:  78.1, y: 593.0, key: 'formB.riskReason', maxWidth: 450, size: 9, lineHeight: 13 },
                 { x:  91.3, y: 466.7, key: 'resName' },
                 { x: 303.0, y: 465.8, key: 'resReg' },
                 { x: 164.0, y: 412.0, key: 'estateAgentName' },
@@ -477,7 +477,7 @@ window.AML_FORM_COORDS = {
                 { x: 383.5, y: 641.3, key: 'counterparty.nricOrPassport' }
             ],
             3: [
-                { x:  77.2, y: 580.9, key: 'formU5.riskReason' },
+                { x:  77.2, y: 595.0, key: 'formU5.riskReason', maxWidth: 450, size: 9, lineHeight: 13 },
                 { x:  88.4, y: 547.6, key: 'resName' },
                 { x: 294.9, y: 547.6, key: 'resReg' },
                 { x: 164.0, y: 482.5, key: 'estateAgentName' },
@@ -763,8 +763,8 @@ window.AML_FORM_COORDS = {
                 { x: 213.8, y: 296.6, key: 'formC.wealthSourcesOthersDetail' }
             ],
             2: [
-                { x: 217.7, y: 611.1, key: 'formC.highRiskBasis' },
-                { x: 271.0, y: 555.6, key: 'formC.proceedReasons' }
+                { x: 217.7, y: 622.0, key: 'formC.highRiskBasis',  maxWidth: 290, size: 8, lineHeight: 11 },
+                { x: 271.0, y: 567.0, key: 'formC.proceedReasons', maxWidth: 240, size: 8, lineHeight: 11 }
             ]
         },
         checkboxes: {
@@ -827,20 +827,23 @@ window.AML_FORM_COORDS = {
                 { x: 190.8, y: 645.7, key: 'formU6.purchasePrice' },
                 { x: 413.4, y: 644.6, key: 'formU6.monthlyRental' },
                 { x: 427.0, y: 624.3, key: 'formU6.purposeOthersDetail' },
-                { x: 115.2, y: 580.2, key: 'formU6.transactionAmount' },
-                { x: 426.6, y: 575.9, key: 'formU6.bankStatementMonths' },
-                { x: 208.9, y: 504.0, key: 'formU6.fundLoanInstitution' },
-                { x: 361.6, y: 490.1, key: 'formU6.fundSupportingDocsOthersDetail' },
-                { x: 208.2, y: 468.6, key: 'formU6.fundSourcesOthersDetail' },
-                { x: 115.2, y: 422.9, key: 'formU6.wealthNetWorth' },
-                { x: 149.4, y: 388.7, key: 'formU6.wealthBusinessName' },
-                { x: 197.2, y: 364.4, key: 'formU6.wealthInvestmentType' },
-                { x: 361.3, y: 359.1, key: 'formU6.wealthSupportingDocsOthersDetail' },
-                { x: 215.0, y: 327.5, key: 'formU6.wealthSourcesOthersDetail' }
+                // Section B/C value rects in U6 are ~7-10pt tall — use size 8 + lower
+                // baseline so values sit cleanly above the underline without overlapping
+                // the italic label above.
+                { x: 115.2, y: 578.0, key: 'formU6.transactionAmount', size: 8 },
+                { x: 426.6, y: 574.5, key: 'formU6.bankStatementMonths', size: 8 },
+                { x: 208.9, y: 502.5, key: 'formU6.fundLoanInstitution', size: 8 },
+                { x: 361.6, y: 488.5, key: 'formU6.fundSupportingDocsOthersDetail', size: 8 },
+                { x: 208.2, y: 467.0, key: 'formU6.fundSourcesOthersDetail', size: 8 },
+                { x: 115.2, y: 421.0, key: 'formU6.wealthNetWorth', size: 8 },
+                { x: 149.4, y: 387.0, key: 'formU6.wealthBusinessName', size: 8 },
+                { x: 197.2, y: 363.0, key: 'formU6.wealthInvestmentType', size: 8 },
+                { x: 361.3, y: 357.5, key: 'formU6.wealthSupportingDocsOthersDetail', size: 8 },
+                { x: 215.0, y: 326.0, key: 'formU6.wealthSourcesOthersDetail', size: 8 }
             ],
             2: [
-                { x: 217.0, y: 614.4, key: 'formU6.highRiskBasis' },
-                { x: 312.6, y: 557.5, key: 'formU6.proceedReasons' }
+                { x: 217.0, y: 622.0, key: 'formU6.highRiskBasis',  maxWidth: 290, size: 8, lineHeight: 11 },
+                { x: 312.6, y: 567.0, key: 'formU6.proceedReasons', maxWidth: 200, size: 8, lineHeight: 11 }
             ]
         },
         checkboxes: {
@@ -901,8 +904,8 @@ window.AML_FORM_COORDS = {
                 { x: 424.0, y: 668.0, key: 'entity.name' },
                 { x: 213.7, y: 648.8, key: 'client.nricOrPassport' },
                 { x: 407.4, y: 648.8, key: 'entity.uen' },
-                { x: 244.0, y: 632.0, key: 'formD.individualBOs' },
-                { x: 455.4, y: 632.0, key: 'formD.entityBOs' },
+                { x: 244.0, y: 632.0, key: 'formD.individualBOs', maxWidth: 115, size: 8, lineHeight: 11 },
+                { x: 455.4, y: 632.0, key: 'formD.entityBOs',     maxWidth: 75,  size: 8, lineHeight: 11 },
                 // Section B — Business relationship
                 { x: 196.0, y: 555.7, key: 'formD.relationshipNature' },
                 { x: 234.4, y: 538.1, key: 'formD.relationshipDate' },
@@ -911,7 +914,7 @@ window.AML_FORM_COORDS = {
                 { x: 373.8, y: 488.8, key: 'formD.reviewFrequency' },
                 { x: 374.0, y: 458.5, key: 'formD.lastReviewDate' },
                 { x: 374.5, y: 431.7, key: 'formD.nextReviewDue' },
-                { x:  97.6, y: 484.0, key: 'formD.riskLevelReasons' },
+                { x:  97.6, y: 487.0, key: 'formD.riskLevelReasons', maxWidth: 264, size: 8, lineHeight: 22 },
                 // Section D — Ongoing monitoring (1: Information Currency Check)
                 { x: 102.8, y: 242.1, key: 'formD.changeOthersDetail' },
                 // Section D — (2: Transaction Monitoring)

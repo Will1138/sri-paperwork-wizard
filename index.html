@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=phase4-1"></script>
+    <script src="aml-pdf-coords.js?v=phase4-4-u6spacing"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -1324,12 +1324,20 @@
                             if (value === undefined || value === null || value === '' || value === false) continue;
                             value = formatDate(value);
                             try {
-                                page.drawText(String(value).toUpperCase(), {
+                                const fontSize = field.size || 10;
+                                const drawOpts = {
                                     x: field.x,
                                     y: field.y,
-                                    size: 10,
+                                    size: fontSize,
                                     font: font
-                                });
+                                };
+                                // For multi-line boxes (fields that pass `maxWidth`),
+                                // pdf-lib auto-wraps and stacks lines downward from y.
+                                if (field.maxWidth) {
+                                    drawOpts.maxWidth = field.maxWidth;
+                                    drawOpts.lineHeight = field.lineHeight || (fontSize + 1);
+                                }
+                                page.drawText(String(value).toUpperCase(), drawOpts);
                             } catch (e) {
                                 console.warn('[PDF] drawText failed for', field.key, e);
                             }
