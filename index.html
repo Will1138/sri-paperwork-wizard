@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=placeholder-fill-v4"></script>
+    <script src="aml-pdf-coords.js?v=commission-aliases"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -227,6 +227,7 @@
                     repairThresholdAmount: '200',       // Threshold above which landlord consent needed
                     diplomaticClauseMonths: '12',       // Minimum months before diplomatic clause kicks in
                     handoverLetterDate: '',             // Optional — defaults to agreement date
+                    solicitorName: '',                   // Solicitor firm name for commission agreements
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
                     // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
@@ -1368,6 +1369,9 @@
                     // Rent
                     rent_amount:              priceNum > 0 ? priceFormatted : '',
                     rent_amount_words:        priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
+                    // Aliases — Tenant commission template uses {{rental_amount}} instead of {{rent_amount}}
+                    rental_amount:            priceNum > 0 ? priceFormatted : '',
+                    rental_amount_words:      priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
                     rent_payment_day:         formData.paymentDueDay || '',
                     rent_payment_day_words:   formData.paymentDueDay ? ordinalWords(formData.paymentDueDay) : '',
                     // Security deposit
@@ -1390,7 +1394,48 @@
                     agent_name:               (formData.agentName || '').toUpperCase(),
                     agent_cea_reg:            (formData.ceaRegistration || '').toUpperCase(),
                     agent_contact:            formData.agentContact || '',
-                    agency_name:              'SRI PTE LTD'
+                    agency_name:              'SRI PTE LTD',
+                    solicitor_name:           (formData.solicitorName || '').toUpperCase(),
+                    // Solicitor aliases — different commission templates use different names
+                    seller_law_firm_name:     (formData.solicitorName || '').toUpperCase(),
+                    purchaser_law_firm_name:  (formData.solicitorName || '').toUpperCase(),
+                    buyer_law_firm_name:      (formData.solicitorName || '').toUpperCase(),
+
+                    // Address aliases — extends TA mappings to also surface
+                    // landlord/tenant addresses when the template asks for them.
+                    landlord_address:  (isLandlordRole ? (formData.clientAddress || '') : (formData.counterpartyAddress || '')).toUpperCase(),
+                    landlord2_address: ((isLandlordRole ? (formData.client2Address || '') : (formData.counterparty2Address || '')) || '').toUpperCase(),
+                    tenant_address:    (isLandlordRole ? (formData.counterpartyAddress || '') : (formData.clientAddress || '')).toUpperCase(),
+                    tenant2_address:   ((isLandlordRole ? (formData.counterparty2Address || '') : (formData.client2Address || '')) || '').toUpperCase(),
+
+                    // Sale-side commission placeholders. For Sale/Purchase deals the
+                    // "seller" is whichever side William represents when he's on the
+                    // landlord/seller side, and vice versa for buyer-side commissions.
+                    seller_name:        (isLandlordRole ? (formData.clientName || '') : (formData.counterpartyName || '')).toUpperCase(),
+                    seller_nric:        (isLandlordRole ? (formData.clientNRIC || '') : (formData.counterpartyNRIC || '')).toUpperCase(),
+                    seller_address:     (isLandlordRole ? (formData.clientAddress || '') : (formData.counterpartyAddress || '')).toUpperCase(),
+                    seller2_name:       ((isLandlordRole ? (formData.client2Name || '') : (formData.counterparty2Name || '')) || '').toUpperCase(),
+                    seller2_nric:       ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase(),
+                    seller2_address:    ((isLandlordRole ? (formData.client2Address || '') : (formData.counterparty2Address || '')) || '').toUpperCase(),
+                    purchaser_name:     (isLandlordRole ? (formData.counterpartyName || '') : (formData.clientName || '')).toUpperCase(),
+                    purchaser_nric:     (isLandlordRole ? (formData.counterpartyNRIC || '') : (formData.clientNRIC || '')).toUpperCase(),
+                    purchaser_address:  (isLandlordRole ? (formData.counterpartyAddress || '') : (formData.clientAddress || '')).toUpperCase(),
+                    purchaser2_name:    ((isLandlordRole ? (formData.counterparty2Name || '') : (formData.client2Name || '')) || '').toUpperCase(),
+                    purchaser2_nric:    ((isLandlordRole ? (formData.counterparty2NRIC || '') : (formData.client2NRIC || '')) || '').toUpperCase(),
+                    purchaser2_address: ((isLandlordRole ? (formData.counterparty2Address || '') : (formData.client2Address || '')) || '').toUpperCase(),
+                    // Buyer aliases (some templates may use {{buyer_*}} instead of {{purchaser_*}})
+                    buyer_name:         (isLandlordRole ? (formData.counterpartyName || '') : (formData.clientName || '')).toUpperCase(),
+                    buyer_nric:         (isLandlordRole ? (formData.counterpartyNRIC || '') : (formData.clientNRIC || '')).toUpperCase(),
+                    buyer_address:      (isLandlordRole ? (formData.counterpartyAddress || '') : (formData.clientAddress || '')).toUpperCase(),
+                    buyer2_name:        ((isLandlordRole ? (formData.counterparty2Name || '') : (formData.client2Name || '')) || '').toUpperCase(),
+                    buyer2_nric:        ((isLandlordRole ? (formData.counterparty2NRIC || '') : (formData.client2NRIC || '')) || '').toUpperCase(),
+
+                    // Sale price + commission for commission agreements
+                    transaction_price:        priceNum > 0 ? priceFormatted : '',
+                    transaction_price_words:  priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
+                    commission_amount:        commissionAmount > 0 ? commissionFormatted : '',
+                    commission_amount_words:  commissionAmount > 0 ? (numberToWords(commissionAmount) + ' Only').toUpperCase() : '',
+                    commission_rate:          commissionRateText
                 };
 
                 // Define fmtDateIfIso here too (used in the map above; the rule-loop
@@ -2534,6 +2579,14 @@
                                 label: 'GST on commission',
                                 checked: formData.commissionGST,
                                 onChange: (v) => updateField('commissionGST', v)
+                            }),
+                            // Solicitor firm — only for sale/purchase deals (rental commission doesn't reference one)
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'solicitor',
+                                label: 'Solicitor Firm Name (for commission agreement)',
+                                value: formData.solicitorName,
+                                onChange: (v) => updateField('solicitorName', v),
+                                placeholder: 'e.g. Drew & Napier LLC'
                             }),
                             formData.transactionType === 'Rental' && [
                                 React.createElement(InputField, {
