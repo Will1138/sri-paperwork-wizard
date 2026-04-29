@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=ta-bug-fixes"></script>
+    <script src="aml-pdf-coords.js?v=placeholder-fill"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -1226,6 +1226,28 @@
                 return n.toLocaleString('en-US');
             };
 
+            // Convert a number 1-31 to ordinal English words for TA day fields.
+            // 1 → FIRST, 21 → TWENTY FIRST, 30 → THIRTIETH, etc.
+            const ordinalWords = (val) => {
+                const n = parseInt(String(val).replace(/[^\d]/g, ''), 10);
+                if (!n) return '';
+                const ones = ['', 'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH', 'SIXTH', 'SEVENTH',
+                    'EIGHTH', 'NINTH', 'TENTH', 'ELEVENTH', 'TWELFTH', 'THIRTEENTH', 'FOURTEENTH',
+                    'FIFTEENTH', 'SIXTEENTH', 'SEVENTEENTH', 'EIGHTEENTH', 'NINETEENTH', 'TWENTIETH'];
+                if (n <= 20) return ones[n];
+                if (n === 30) return 'THIRTIETH';
+                if (n < 30) return 'TWENTY ' + ones[n - 20];
+                return 'THIRTY ' + ones[n - 30];
+            };
+
+            // 1-12 → English month name in caps
+            const monthName = (val) => {
+                const n = parseInt(String(val).replace(/[^\d]/g, ''), 10);
+                const names = ['', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+                    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+                return names[n] || '';
+            };
+
             const fillDocxTemplate = (arrayBuffer) => {
                 console.log('[FILL] Starting fillDocxTemplate, buffer size:', arrayBuffer.byteLength);
                 const zip = new PizZip(arrayBuffer);
@@ -1306,6 +1328,148 @@
                 const sdNum   = parseFloat(String(formData.securityDeposit || '0').replace(/,/g, '')) || 0;
                 const rentNum = parseFloat(String(formData.transactionPrice || '0').replace(/,/g, '')) || 0;
                 const securityDepositMonths = (sdNum > 0 && rentNum > 0) ? String(Math.round(sdNum / rentNum)) : '';
+
+                // Diplomatic clause months plus two (the "minimum of N+2 months' worth" clause)
+                const dipMonthsNum = parseInt(formData.diplomaticClauseMonths || '0', 10);
+                const dipMonthsPlus2 = dipMonthsNum > 0 ? String(dipMonthsNum + 2) : '';
+
+                // ============================================================
+                // {{placeholder}} fill — pre-pass before the underscore rules.
+                // Templates can use {{tag_name}} for explicit fields; this maps
+                // each tag to a computed value and replaces in the XML even when
+                // Word splits the tag across multiple text runs.
+                // ============================================================
+                const placeholderMap = {
+                    // Parties
+                    landlord_name:   (landlordName || '').toUpperCase(),
+                    landlord_nric:   (landlordNric || '').toUpperCase(),
+                    landlords_nric:  (landlordNric || '').toUpperCase(), // typo workaround
+                    landlord2_name:  (landlord2Name || '').toUpperCase(),
+                    landlord2_nric:  ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase(),
+                    tenant_name:     (tenantName || '').toUpperCase(),
+                    tenant_nric:     (tenantNric || '').toUpperCase(),
+                    tenant2_name:    (tenant2Name || '').toUpperCase(),
+                    tenant2_nric:    ((isLandlordRole ? (formData.counterparty2NRIC || '') : (formData.client2NRIC || '')) || '').toUpperCase(),
+                    // Property
+                    property_address: (formData.propertyAddress || '').toUpperCase(),
+                    // Lease term
+                    lease_term_months:        leaseTermMonths,
+                    lease_term_months_words:  leaseTermMonths ? numberToWords(parseInt(leaseTermMonths, 10)).toUpperCase() : '',
+                    lease_start_day:          leaseStartDay,
+                    lease_start_day_words:    leaseStartDay ? ordinalWords(leaseStartDay) : '',
+                    lease_start_month_words:  lsd ? monthName(lsd.mo) : '',
+                    lease_start_year:         lsd ? String(lsd.y) : '',
+                    lease_end_day:            leaseEndDay,
+                    lease_end_day_words:      leaseEndDay ? ordinalWords(leaseEndDay) : '',
+                    lease_end_month_words:    led ? monthName(led.mo) : '',
+                    lease_end_year:           led ? String(led.y) : '',
+                    // Rent
+                    rent_amount:              priceNum > 0 ? priceFormatted : '',
+                    rent_amount_words:        priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
+                    rent_payment_day:         formData.paymentDueDay || '',
+                    rent_payment_day_words:   formData.paymentDueDay ? ordinalWords(formData.paymentDueDay) : '',
+                    // Security deposit
+                    security_deposit:               sdNum > 0 ? formatPrice(sdNum) : '',
+                    security_deposit_words:         sdNum > 0 ? (numberToWords(sdNum) + ' Only').toUpperCase() : '',
+                    security_deposit_months:        securityDepositMonths,
+                    security_deposit_months_words:  securityDepositMonths ? numberToWords(parseInt(securityDepositMonths, 10)).toUpperCase() : '',
+                    // Repair clauses
+                    repair_cap_amount:        repairCapFmt,
+                    repair_cap_words:         repairCapWords ? (repairCapWords + ' Only').toUpperCase() : '',
+                    repair_threshold_amount:  repairThresholdFmt,
+                    // Diplomatic clause
+                    diplomatic_clause_months:           formData.diplomaticClauseMonths || '',
+                    diplomatic_clause_months_plus_two:  dipMonthsPlus2,
+                    // Letter of intent date
+                    letter_of_intent_date:    fmtDateIfIso(handoverDate),
+                    // Misc
+                    today:                    today,
+                    agreement_date:           fmtDateIfIso(formData.agreementDate || today),
+                    agent_name:               (formData.agentName || '').toUpperCase(),
+                    agent_cea_reg:            (formData.ceaRegistration || '').toUpperCase(),
+                    agent_contact:            formData.agentContact || '',
+                    agency_name:              'SRI PTE LTD'
+                };
+
+                // Define fmtDateIfIso here too (used in the map above; the rule-loop
+                // copy is hoisted differently). Same logic: ISO YYYY-MM-DD → dd/mm/yyyy.
+                function fmtDateIfIso(v) {
+                    if (!v || typeof v !== 'string') return v;
+                    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : v;
+                }
+
+                // Apply placeholder fills via the same flat-text + posMap technique
+                // as the underscore loop. Multiple occurrences of the same {{tag}}
+                // get replaced. Handles tags split across XML runs.
+                xml = (function applyPlaceholders(originalXml) {
+                    const tRe = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+                    const parts = [];
+                    let m2;
+                    while ((m2 = tRe.exec(originalXml)) !== null) {
+                        parts.push({ text: m2[1], fullMatch: m2[0], offset: m2.index });
+                    }
+                    let f = '';
+                    const pmap = [];
+                    for (let i = 0; i < parts.length; i++) {
+                        f += parts[i].text;
+                        for (let j = 0; j < parts[i].text.length; j++) pmap.push(i);
+                    }
+                    // Find every {{tag}} occurrence
+                    const phRe = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+                    const found = [];
+                    let phM;
+                    while ((phM = phRe.exec(f)) !== null) {
+                        found.push({
+                            start: phM.index,
+                            end: phM.index + phM[0].length,
+                            tag: phM[1],
+                            value: placeholderMap.hasOwnProperty(phM[1]) ? String(placeholderMap[phM[1]] || '') : ''
+                        });
+                    }
+                    // Apply in REVERSE order so positions don't shift mid-stream
+                    found.sort((a, b) => b.start - a.start);
+                    let outXml = originalXml;
+                    for (const ph of found) {
+                        const sp = pmap[ph.start];
+                        const ep = pmap[ph.end - 1];
+                        // chars before startPart
+                        let cb = 0;
+                        for (let k = 0; k < sp; k++) cb += parts[k].text.length;
+                        const inStart = ph.start - cb;
+                        // First part: replace from inStart to either end-of-tag-in-this-part or end-of-part
+                        if (sp === ep) {
+                            const inEnd = ph.end - cb;
+                            const oldT = parts[sp].text;
+                            const newT = oldT.substring(0, inStart) + ph.value + oldT.substring(inEnd);
+                            const newFm = parts[sp].fullMatch.replace(oldT, newT);
+                            outXml = outXml.replace(parts[sp].fullMatch, newFm);
+                            parts[sp].text = newT;
+                            parts[sp].fullMatch = newFm;
+                        } else {
+                            // Multi-part: replace the slice in startPart, clear intermediate slices in the rest
+                            const oldT = parts[sp].text;
+                            const newT = oldT.substring(0, inStart) + ph.value;
+                            const newFm = parts[sp].fullMatch.replace(oldT, newT);
+                            outXml = outXml.replace(parts[sp].fullMatch, newFm);
+                            parts[sp].text = newT;
+                            parts[sp].fullMatch = newFm;
+                            for (let i = sp + 1; i <= ep; i++) {
+                                let cb2 = 0;
+                                for (let k = 0; k < i; k++) cb2 += parts[k].text.length;
+                                const remEnd = (i === ep) ? (ph.end - cb2) : parts[i].text.length;
+                                const oldT2 = parts[i].text;
+                                const newT2 = oldT2.substring(remEnd);
+                                const newFm2 = parts[i].fullMatch.replace(oldT2, newT2);
+                                outXml = outXml.replace(parts[i].fullMatch, newFm2);
+                                parts[i].text = newT2;
+                                parts[i].fullMatch = newFm2;
+                            }
+                        }
+                    }
+                    console.log('[FILL] {{placeholder}} pass — replaced', found.length, 'tags');
+                    return outXml;
+                })(xml);
 
                 // Step 1: Extract all text content to build context for matching
                 // We concatenate text from <w:t> tags to understand the document flow
@@ -1504,15 +1668,8 @@
                 console.log('[FILL] Flat text length:', flatText.length, 'textParts count:', textParts.length);
                 console.log('[FILL] First 500 chars of flat text:', flatText.substring(0, 500));
 
-                // HTML date inputs return ISO YYYY-MM-DD. Convert any rule value
-                // matching that shape to dd/mm/yyyy before substitution. This covers
-                // every date-flavoured field (lease dates, DOBs, handover, exclusive
-                // period, agreement date, etc.) without per-rule plumbing.
-                const fmtDateIfIso = (v) => {
-                    if (!v || typeof v !== 'string') return v;
-                    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : v;
-                };
+                // (fmtDateIfIso is defined as a hoisted function declaration above —
+                // used by both the {{placeholder}} fill pass and the rule loop below.)
 
                 const claimedParts = new Set(); // track which textParts have already been replaced
                 for (const rule of replacements) {
