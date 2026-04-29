@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=placeholder-fill-v3"></script>
+    <script src="aml-pdf-coords.js?v=placeholder-fill-v4"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -1428,6 +1428,12 @@
                         f += parts[i].text;
                         for (let j = 0; j < parts[i].text.length; j++) pmap.push(i);
                     }
+                    // Snapshot ORIGINAL text lengths so offset math stays consistent
+                    // even after we mutate parts[i].text. Pre-compute prefix sums for
+                    // O(1) lookup of "chars before parts[i]" using original lengths.
+                    const origLen = parts.map(p => p.text.length);
+                    const prefixSum = [0];
+                    for (let i = 0; i < origLen.length; i++) prefixSum.push(prefixSum[i] + origLen[i]);
                     // Find every {{tag}} occurrence
                     const phRe = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
                     const found = [];
@@ -1441,25 +1447,26 @@
                         });
                     }
                     // Apply replacements DIRECTLY to parts[i].text. Process in reverse
-                    // so per-part character positions don't shift before we reach them.
+                    // so we never need to use modified lengths for positions earlier
+                    // in the doc (those positions are still valid). Use the ORIGINAL
+                    // length prefix sums for in-part offsets so multi-part replacements
+                    // don't truncate trailing content of later parts.
                     found.sort((a, b) => b.start - a.start);
                     for (const ph of found) {
                         const sp = pmap[ph.start];
                         const ep = pmap[ph.end - 1];
-                        // chars in flat text before parts[sp]
-                        let cb = 0;
-                        for (let k = 0; k < sp; k++) cb += parts[k].text.length;
-                        const inStart = ph.start - cb;
+                        const inStart = ph.start - prefixSum[sp];
                         if (sp === ep) {
-                            const inEnd = ph.end - cb;
+                            const inEnd = ph.end - prefixSum[sp];
                             parts[sp].text = parts[sp].text.substring(0, inStart) + ph.value + parts[sp].text.substring(inEnd);
                         } else {
-                            // Multi-part: stuff value into start part, clear/trim subsequent parts
+                            // Multi-part: stuff value into start part, clear/trim subsequent parts.
+                            // Crucially, use ORIGINAL part lengths (origLen / prefixSum) for the
+                            // offset of parts[i] — parts[sp].text just got shortened, so reading
+                            // its current length here would trim the wrong amount from parts[ep].
                             parts[sp].text = parts[sp].text.substring(0, inStart) + ph.value;
                             for (let i = sp + 1; i <= ep; i++) {
-                                let cb2 = 0;
-                                for (let k = 0; k < i; k++) cb2 += parts[k].text.length;
-                                const remEnd = (i === ep) ? (ph.end - cb2) : parts[i].text.length;
+                                const remEnd = (i === ep) ? (ph.end - prefixSum[i]) : origLen[i];
                                 parts[i].text = parts[i].text.substring(remEnd);
                             }
                         }
