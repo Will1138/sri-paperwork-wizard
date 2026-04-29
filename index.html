@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=placeholder-fill"></script>
+    <script src="aml-pdf-coords.js?v=placeholder-fill-v3"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -1343,7 +1343,9 @@
                     // Parties
                     landlord_name:   (landlordName || '').toUpperCase(),
                     landlord_nric:   (landlordNric || '').toUpperCase(),
-                    landlords_nric:  (landlordNric || '').toUpperCase(), // typo workaround
+                    // {{landlords_nric}} is a typo in the template — contextually
+                    // it appears in the second-NRIC slot, so map it to landlord 2's NRIC.
+                    landlords_nric:  ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase(),
                     landlord2_name:  (landlord2Name || '').toUpperCase(),
                     landlord2_nric:  ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase(),
                     tenant_name:     (tenantName || '').toUpperCase(),
@@ -1399,16 +1401,27 @@
                     return m ? (m[3] + '/' + m[2] + '/' + m[1]) : v;
                 }
 
-                // Apply placeholder fills via the same flat-text + posMap technique
-                // as the underscore loop. Multiple occurrences of the same {{tag}}
-                // get replaced. Handles tags split across XML runs.
+                // Apply {{placeholder}} fills using offset-based XML splicing.
+                // Why: many <w:t> runs in a Word doc have IDENTICAL content (tabs,
+                // spaces, short strings). The earlier string.replace approach would
+                // hit the wrong duplicate and corrupt unrelated text. This rebuilds
+                // the XML by walking each <w:t> in order and substituting its
+                // captured text with the (possibly modified) version.
                 xml = (function applyPlaceholders(originalXml) {
                     const tRe = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+                    // Capture each <w:t>: text content + opening-tag prefix + offsets
                     const parts = [];
                     let m2;
                     while ((m2 = tRe.exec(originalXml)) !== null) {
-                        parts.push({ text: m2[1], fullMatch: m2[0], offset: m2.index });
+                        const openingMatch = m2[0].match(/^<w:t(?:\s[^>]*)?>/);
+                        parts.push({
+                            text: m2[1],
+                            opening: openingMatch ? openingMatch[0] : '<w:t>',
+                            start: m2.index,
+                            end: m2.index + m2[0].length
+                        });
                     }
+                    // Build flat text + position map (flat index → parts index)
                     let f = '';
                     const pmap = [];
                     for (let i = 0; i < parts.length; i++) {
@@ -1427,48 +1440,50 @@
                             value: placeholderMap.hasOwnProperty(phM[1]) ? String(placeholderMap[phM[1]] || '') : ''
                         });
                     }
-                    // Apply in REVERSE order so positions don't shift mid-stream
+                    // Apply replacements DIRECTLY to parts[i].text. Process in reverse
+                    // so per-part character positions don't shift before we reach them.
                     found.sort((a, b) => b.start - a.start);
-                    let outXml = originalXml;
                     for (const ph of found) {
                         const sp = pmap[ph.start];
                         const ep = pmap[ph.end - 1];
-                        // chars before startPart
+                        // chars in flat text before parts[sp]
                         let cb = 0;
                         for (let k = 0; k < sp; k++) cb += parts[k].text.length;
                         const inStart = ph.start - cb;
-                        // First part: replace from inStart to either end-of-tag-in-this-part or end-of-part
                         if (sp === ep) {
                             const inEnd = ph.end - cb;
-                            const oldT = parts[sp].text;
-                            const newT = oldT.substring(0, inStart) + ph.value + oldT.substring(inEnd);
-                            const newFm = parts[sp].fullMatch.replace(oldT, newT);
-                            outXml = outXml.replace(parts[sp].fullMatch, newFm);
-                            parts[sp].text = newT;
-                            parts[sp].fullMatch = newFm;
+                            parts[sp].text = parts[sp].text.substring(0, inStart) + ph.value + parts[sp].text.substring(inEnd);
                         } else {
-                            // Multi-part: replace the slice in startPart, clear intermediate slices in the rest
-                            const oldT = parts[sp].text;
-                            const newT = oldT.substring(0, inStart) + ph.value;
-                            const newFm = parts[sp].fullMatch.replace(oldT, newT);
-                            outXml = outXml.replace(parts[sp].fullMatch, newFm);
-                            parts[sp].text = newT;
-                            parts[sp].fullMatch = newFm;
+                            // Multi-part: stuff value into start part, clear/trim subsequent parts
+                            parts[sp].text = parts[sp].text.substring(0, inStart) + ph.value;
                             for (let i = sp + 1; i <= ep; i++) {
                                 let cb2 = 0;
                                 for (let k = 0; k < i; k++) cb2 += parts[k].text.length;
                                 const remEnd = (i === ep) ? (ph.end - cb2) : parts[i].text.length;
-                                const oldT2 = parts[i].text;
-                                const newT2 = oldT2.substring(remEnd);
-                                const newFm2 = parts[i].fullMatch.replace(oldT2, newT2);
-                                outXml = outXml.replace(parts[i].fullMatch, newFm2);
-                                parts[i].text = newT2;
-                                parts[i].fullMatch = newFm2;
+                                parts[i].text = parts[i].text.substring(remEnd);
                             }
                         }
                     }
+                    // XML-escape any < > & in inserted values (we don't expect these in
+                    // real-world data but be defensive).
+                    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    // Walk original XML and emit modified <w:t> blocks IN ORDER. This
+                    // is the key fix vs. xml.replace() — we splice by offset, so two
+                    // parts with identical content can be modified independently.
+                    let out = '';
+                    let cursor = 0;
+                    let idx = 0;
+                    const tRe2 = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+                    let m3;
+                    while ((m3 = tRe2.exec(originalXml)) !== null) {
+                        out += originalXml.substring(cursor, m3.index);
+                        const p = parts[idx++];
+                        out += p.opening + esc(p.text) + '</w:t>';
+                        cursor = m3.index + m3[0].length;
+                    }
+                    out += originalXml.substring(cursor);
                     console.log('[FILL] {{placeholder}} pass — replaced', found.length, 'tags');
-                    return outXml;
+                    return out;
                 })(xml);
 
                 // Step 1: Extract all text content to build context for matching
