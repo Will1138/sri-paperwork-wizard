@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=commission-aliases"></script>
+    <script src="aml-pdf-coords.js?v=cobroke-placeholders"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -228,6 +228,7 @@
                     diplomaticClauseMonths: '12',       // Minimum months before diplomatic clause kicks in
                     handoverLetterDate: '',             // Optional — defaults to agreement date
                     solicitorName: '',                   // Solicitor firm name for commission agreements
+                    cobrokeSharePercent: '50',           // % of commission paid to co-broke agent (50 = even split)
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
                     // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
@@ -1334,6 +1335,15 @@
                 const dipMonthsNum = parseInt(formData.diplomaticClauseMonths || '0', 10);
                 const dipMonthsPlus2 = dipMonthsNum > 0 ? String(dipMonthsNum + 2) : '';
 
+                // Cobroke fee = total commission × cobroke share %
+                // Rate (as % of transacted price) = commission_rate × cobroke share %
+                const cobrokeShareNum = parseFloat(String(formData.cobrokeSharePercent || '50').replace(/[^\d.]/g, '')) || 50;
+                const cobrokeFeeAmount = commissionAmount > 0 ? Math.round(commissionAmount * cobrokeShareNum / 100) : 0;
+                const cobrokeFeeFmt   = cobrokeFeeAmount > 0 ? formatPrice(cobrokeFeeAmount) : '';
+                const cobrokeFeeWords = cobrokeFeeAmount > 0 ? (numberToWords(cobrokeFeeAmount) + ' Only').toUpperCase() : '';
+                const commRateNum     = parseFloat(commissionRateText || '0') || 0;
+                const cobrokeFeeRate  = commRateNum > 0 ? String(parseFloat((commRateNum * cobrokeShareNum / 100).toFixed(3))) : '';
+
                 // ============================================================
                 // {{placeholder}} fill — pre-pass before the underscore rules.
                 // Templates can use {{tag_name}} for explicit fields; this maps
@@ -1435,7 +1445,17 @@
                     transaction_price_words:  priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
                     commission_amount:        commissionAmount > 0 ? commissionFormatted : '',
                     commission_amount_words:  commissionAmount > 0 ? (numberToWords(commissionAmount) + ' Only').toUpperCase() : '',
-                    commission_rate:          commissionRateText
+                    commission_rate:          commissionRateText,
+
+                    // Co-broke agreement placeholders
+                    cobroke_agency_name:      (formData.cobrokeAgentAgency || '').toUpperCase(),
+                    cobroke_agent_name:       (formData.cobrokeAgentName || '').toUpperCase(),
+                    cobroke_agent_cea:        (formData.cobrokeAgentCEA || '').toUpperCase(),
+                    cobroke_agent_mobile:     formData.cobrokeAgentMobile || '',
+                    cobroke_fee_amount:       cobrokeFeeFmt,
+                    cobroke_fee_amount_words: cobrokeFeeWords,
+                    cobroke_fee_rate:         cobrokeFeeRate,
+                    cobroke_share_percent:    String(cobrokeShareNum)
                 };
 
                 // Define fmtDateIfIso here too (used in the map above; the rule-loop
@@ -2735,6 +2755,13 @@
                                 value: formData.cobrokeAgentAgency,
                                 onChange: (v) => updateField('cobrokeAgentAgency', v),
                                 required: true
+                            }),
+                            React.createElement(InputField, {
+                                label: 'Cobroke Share % (of total commission)',
+                                value: formData.cobrokeSharePercent,
+                                onChange: (v) => updateField('cobrokeSharePercent', v),
+                                type: 'number',
+                                placeholder: '50 = even split, 60 = co-broke gets 60%'
                             })
                         )
                     ),
