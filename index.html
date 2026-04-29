@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=cobroke-placeholders"></script>
+    <script src="aml-pdf-coords.js?v=otp-placeholders"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -228,7 +228,13 @@
                     diplomaticClauseMonths: '12',       // Minimum months before diplomatic clause kicks in
                     handoverLetterDate: '',             // Optional — defaults to agreement date
                     solicitorName: '',                   // Solicitor firm name for commission agreements
+                    solicitorAddress: '',                // Solicitor firm address (used in OTP)
                     cobrokeSharePercent: '50',           // % of commission paid to co-broke agent (50 = even split)
+                    // OTP-specific inputs
+                    optionFee: '',                       // Option Fee in S$ (typically 1% of sale price)
+                    chequeNumber: '',                    // Cheque number for option fee
+                    chequeBank: '',                      // Bank name on the cheque
+                    completionWeeks: '12',               // Weeks to complete the sale (typically 8-14)
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
                     // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
@@ -1335,6 +1341,24 @@
                 const dipMonthsNum = parseInt(formData.diplomaticClauseMonths || '0', 10);
                 const dipMonthsPlus2 = dipMonthsNum > 0 ? String(dipMonthsNum + 2) : '';
 
+                // OTP-specific computed values
+                const optionFeeNum   = parseFloat(String(formData.optionFee || '0').replace(/,/g, '')) || 0;
+                const optionFeeFmt   = optionFeeNum > 0 ? formatPrice(optionFeeNum) : '';
+                const optionFeeWords = optionFeeNum > 0 ? (numberToWords(optionFeeNum) + ' Only').toUpperCase() : '';
+                // 4% of sale price (the post-acceptance deposit)
+                const fourPctNum     = priceNum > 0 ? Math.round(priceNum * 0.04) : 0;
+                const fourPctFmt     = fourPctNum > 0 ? formatPrice(fourPctNum) : '';
+                const fourPctWords   = fourPctNum > 0 ? (numberToWords(fourPctNum) + ' Only').toUpperCase() : '';
+                // Today's date components for "made on this ___ day of ___ 20___"
+                const todayObj = new Date();
+                const todayDayWords   = ordinalWords(todayObj.getDate());
+                const todayMonthWords = monthName(todayObj.getMonth() + 1);
+                const todayYearFull   = String(todayObj.getFullYear());
+                const todayYearShort  = todayYearFull.slice(-2);
+                // Completion period in weeks (numeric + words)
+                const completionWeeksNum = parseInt(String(formData.completionWeeks || '0'), 10) || 0;
+                const completionWeeksWords = completionWeeksNum > 0 ? numberToWords(completionWeeksNum).toUpperCase() : '';
+
                 // Cobroke fee = total commission × cobroke share %
                 // Rate (as % of transacted price) = commission_rate × cobroke share %
                 const cobrokeShareNum = parseFloat(String(formData.cobrokeSharePercent || '50').replace(/[^\d.]/g, '')) || 50;
@@ -1382,6 +1406,7 @@
                     // Aliases — Tenant commission template uses {{rental_amount}} instead of {{rent_amount}}
                     rental_amount:            priceNum > 0 ? priceFormatted : '',
                     rental_amount_words:      priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',
+                    rent_amount_word:         priceNum > 0 ? (priceInWords + ' Only').toUpperCase() : '',  // typo alias
                     rent_payment_day:         formData.paymentDueDay || '',
                     rent_payment_day_words:   formData.paymentDueDay ? ordinalWords(formData.paymentDueDay) : '',
                     // Security deposit
@@ -1454,8 +1479,32 @@
                     cobroke_agent_mobile:     formData.cobrokeAgentMobile || '',
                     cobroke_fee_amount:       cobrokeFeeFmt,
                     cobroke_fee_amount_words: cobrokeFeeWords,
+                    cobroke_fee_amount_word:  cobrokeFeeWords,  // typo alias (missing trailing 's')
                     cobroke_fee_rate:         cobrokeFeeRate,
-                    cobroke_share_percent:    String(cobrokeShareNum)
+                    cobroke_share_percent:    String(cobrokeShareNum),
+
+                    // OTP placeholders
+                    option_fee:               optionFeeFmt,
+                    option_fee_words:         optionFeeWords,
+                    cheque_number:            formData.chequeNumber || '',
+                    cheque_bank:              (formData.chequeBank || '').toUpperCase(),
+                    four_percent_amount:      fourPctFmt,
+                    four_percent_words:       fourPctWords,
+                    completion_weeks:         completionWeeksNum > 0 ? String(completionWeeksNum) : '',
+                    completion_weeks_words:   completionWeeksWords,
+                    today_day:                String(todayObj.getDate()),
+                    today_day_words:          todayDayWords,
+                    today_month_words:        todayMonthWords,
+                    today_year:               todayYearFull,
+                    today_year_short:         todayYearShort,
+                    vendor_solicitor_name:    (formData.solicitorName || '').toUpperCase(),
+                    vendor_solicitor_address: (formData.solicitorAddress || '').toUpperCase(),
+                    solicitor_address:        (formData.solicitorAddress || '').toUpperCase(),
+                    // OTP also references "vendor" naming, often interchangeable with seller
+                    vendor_name:              (isLandlordRole ? (formData.clientName || '') : (formData.counterpartyName || '')).toUpperCase(),
+                    vendor_nric:              (isLandlordRole ? (formData.clientNRIC || '') : (formData.counterpartyNRIC || '')).toUpperCase(),
+                    vendor2_name:             ((isLandlordRole ? (formData.client2Name || '') : (formData.counterparty2Name || '')) || '').toUpperCase(),
+                    vendor2_nric:             ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase()
                 };
 
                 // Define fmtDateIfIso here too (used in the map above; the rule-loop
@@ -2600,13 +2649,51 @@
                                 checked: formData.commissionGST,
                                 onChange: (v) => updateField('commissionGST', v)
                             }),
-                            // Solicitor firm — only for sale/purchase deals (rental commission doesn't reference one)
+                            // Solicitor firm — only for sale/purchase deals
                             formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
                                 key: 'solicitor',
-                                label: 'Solicitor Firm Name (for commission agreement)',
+                                label: 'Vendor’s Solicitor Firm (for OTP and commission agreement)',
                                 value: formData.solicitorName,
                                 onChange: (v) => updateField('solicitorName', v),
                                 placeholder: 'e.g. Drew & Napier LLC'
+                            }),
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'solicitor-addr',
+                                label: 'Solicitor Firm Address (for OTP — optional)',
+                                value: formData.solicitorAddress,
+                                onChange: (v) => updateField('solicitorAddress', v),
+                                placeholder: 'e.g. 10 Collyer Quay #10-01 Ocean Financial Centre'
+                            }),
+                            // OTP-specific inputs
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'option-fee',
+                                label: 'Option Fee (S$) — typically 1% of sale price',
+                                value: formData.optionFee,
+                                onChange: (v) => updateField('optionFee', v),
+                                type: 'number',
+                                placeholder: '25000'
+                            }),
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'cheque-no',
+                                label: 'Option Fee Cheque Number',
+                                value: formData.chequeNumber,
+                                onChange: (v) => updateField('chequeNumber', v),
+                                placeholder: 'e.g. 123456'
+                            }),
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'cheque-bank',
+                                label: 'Cheque Bank',
+                                value: formData.chequeBank,
+                                onChange: (v) => updateField('chequeBank', v),
+                                placeholder: 'e.g. DBS, OCBC'
+                            }),
+                            formData.transactionType === 'Sale/Purchase' && React.createElement(InputField, {
+                                key: 'completion-weeks',
+                                label: 'Completion Period (weeks from exercise)',
+                                value: formData.completionWeeks,
+                                onChange: (v) => updateField('completionWeeks', v),
+                                type: 'number',
+                                placeholder: '12'
                             }),
                             formData.transactionType === 'Rental' && [
                                 React.createElement(InputField, {
