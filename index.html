@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=otp-placeholders"></script>
+    <script src="aml-pdf-coords.js?v=otp-typo-alias"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -1495,6 +1495,7 @@
                     today_day:                String(todayObj.getDate()),
                     today_day_words:          todayDayWords,
                     today_month_words:        todayMonthWords,
+                    today_month_word:         todayMonthWords,  // typo alias (missing trailing 's')
                     today_year:               todayYearFull,
                     today_year_short:         todayYearShort,
                     vendor_solicitor_name:    (formData.solicitorName || '').toUpperCase(),
