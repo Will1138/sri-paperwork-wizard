@@ -51,7 +51,7 @@
 
     <!-- AML PDF coordinate maps + field builder -->
     <!-- Cache-buster: bump this query param any time aml-pdf-coords.js changes -->
-    <script src="aml-pdf-coords.js?v=offer-to-purchase-docx"></script>
+    <script src="aml-pdf-coords.js?v=letter-of-offer-rental"></script>
 </head>
 <body class="bg-white">
     <div id="root"></div>
@@ -235,6 +235,14 @@
                     chequeNumber: '',                    // Cheque number for option fee
                     chequeBank: '',                      // Bank name on the cheque
                     completionWeeks: '12',               // Weeks to complete the sale (typically 8-14)
+                    // Letter of Offer (rental) inputs
+                    goodFaithDeposit: '',                // Good faith deposit S$ (typically 1 month's rent)
+                    stampDutyAmount: '',                 // Stamp duty payable on the lease
+                    stampDutyPayee: 'Inland Revenue Authority of Singapore', // Default payee for stamp duty
+                    renewalTermMonths: '12',             // Months for option to renew
+                    taSigningDays: '14',                 // Days within which TA must be signed
+                    offerValidDate: '',                  // Date this Letter of Offer is valid until
+                    handoverDate: '',                    // Property handover date (default = lease start)
                     exclusiveStartDate: '',
                     exclusiveEndDate: '',
                     // Client 2 (joint buyer / co-purchaser). Only used when hasJointClient is true.
@@ -1359,6 +1367,32 @@
                 const completionWeeksNum = parseInt(String(formData.completionWeeks || '0'), 10) || 0;
                 const completionWeeksWords = completionWeeksNum > 0 ? numberToWords(completionWeeksNum).toUpperCase() : '';
 
+                // Letter of Offer (rental) computed values
+                const goodFaithNum     = parseFloat(String(formData.goodFaithDeposit || '0').replace(/,/g, '')) || 0;
+                const goodFaithFmt     = goodFaithNum > 0 ? formatPrice(goodFaithNum) : '';
+                const goodFaithWords   = goodFaithNum > 0 ? (numberToWords(goodFaithNum) + ' Only').toUpperCase() : '';
+                const stampDutyNum     = parseFloat(String(formData.stampDutyAmount || '0').replace(/,/g, '')) || 0;
+                const stampDutyFmt     = stampDutyNum > 0 ? formatPrice(stampDutyNum) : '';
+                const stampDutyWords   = stampDutyNum > 0 ? (numberToWords(stampDutyNum) + ' Only').toUpperCase() : '';
+                const renewalMonthsNum = parseInt(String(formData.renewalTermMonths || '0'), 10) || 0;
+                const renewalMonthsWords = renewalMonthsNum > 0 ? numberToWords(renewalMonthsNum).toUpperCase() : '';
+                const taSigningDaysNum = parseInt(String(formData.taSigningDays || '0'), 10) || 0;
+                const taSigningDaysWords = taSigningDaysNum > 0 ? numberToWords(taSigningDaysNum).toUpperCase() : '';
+                // Offer-valid date breakdown
+                const ovd = parseIso(formData.offerValidDate);
+                const offerValidDay        = ovd ? String(ovd.d) : '';
+                const offerValidDayWords   = ovd ? ordinalWords(ovd.d) : '';
+                const offerValidMonthWords = ovd ? monthName(ovd.mo) : '';
+                const offerValidYear       = ovd ? String(ovd.y) : '';
+                const offerValidYearShort  = ovd ? String(ovd.y).slice(-2) : '';
+                // Property handover date — defaults to lease start when not set
+                const handoverIsoSrc = formData.handoverDate || formData.leaseStartDate || '';
+                const hvd = parseIso(handoverIsoSrc);
+                const handoverDay        = hvd ? String(hvd.d) : '';
+                const handoverDayWords   = hvd ? ordinalWords(hvd.d) : '';
+                const handoverMonthWords = hvd ? monthName(hvd.mo) : '';
+                const handoverYear       = hvd ? String(hvd.y) : '';
+
                 // Cobroke fee = total commission × cobroke share %
                 // Rate (as % of transacted price) = commission_rate × cobroke share %
                 const cobrokeShareNum = parseFloat(String(formData.cobrokeSharePercent || '50').replace(/[^\d.]/g, '')) || 50;
@@ -1505,7 +1539,28 @@
                     vendor_name:              (isLandlordRole ? (formData.clientName || '') : (formData.counterpartyName || '')).toUpperCase(),
                     vendor_nric:              (isLandlordRole ? (formData.clientNRIC || '') : (formData.counterpartyNRIC || '')).toUpperCase(),
                     vendor2_name:             ((isLandlordRole ? (formData.client2Name || '') : (formData.counterparty2Name || '')) || '').toUpperCase(),
-                    vendor2_nric:             ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase()
+                    vendor2_nric:             ((isLandlordRole ? (formData.client2NRIC || '') : (formData.counterparty2NRIC || '')) || '').toUpperCase(),
+
+                    // Letter of Offer (rental) placeholders
+                    good_faith_deposit:        goodFaithFmt,
+                    good_faith_deposit_words:  goodFaithWords,
+                    stamp_duty_amount:         stampDutyFmt,
+                    stamp_duty_amount_words:   stampDutyWords,
+                    stamp_duty_payee:          (formData.stampDutyPayee || '').toUpperCase(),
+                    renewal_term_months:       renewalMonthsNum > 0 ? String(renewalMonthsNum) : '',
+                    renewal_term_months_words: renewalMonthsWords,
+                    ta_signing_days:           taSigningDaysNum > 0 ? String(taSigningDaysNum) : '',
+                    ta_signing_days_words:     taSigningDaysWords,
+                    offer_valid_day:           offerValidDay,
+                    offer_valid_day_words:     offerValidDayWords,
+                    offer_valid_month_words:   offerValidMonthWords,
+                    offer_valid_year:          offerValidYear,
+                    offer_valid_year_short:    offerValidYearShort,
+                    handover_day:              handoverDay,
+                    handover_day_words:        handoverDayWords,
+                    handover_month_words:      handoverMonthWords,
+                    handover_year:             handoverYear,
+                    handover_date:             fmtDateIfIso(handoverIsoSrc)
                 };
 
                 // Define fmtDateIfIso here too (used in the map above; the rule-loop
@@ -2752,6 +2807,60 @@
                                     label: 'Handover letter date (optional — defaults to agreement date)',
                                     value: formData.handoverLetterDate,
                                     onChange: (v) => updateField('handoverLetterDate', v),
+                                    type: 'date'
+                                }),
+                                // --- Letter of Offer-specific inputs (only when on landlord side) ---
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'gfd',
+                                    label: 'Good Faith Deposit (S$) — typically 1 month rent',
+                                    value: formData.goodFaithDeposit,
+                                    onChange: (v) => updateField('goodFaithDeposit', v),
+                                    type: 'number',
+                                    placeholder: 'e.g. 3500'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'stamp-duty',
+                                    label: 'Stamp Duty Amount (S$)',
+                                    value: formData.stampDutyAmount,
+                                    onChange: (v) => updateField('stampDutyAmount', v),
+                                    type: 'number',
+                                    placeholder: 'e.g. 168'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'stamp-duty-payee',
+                                    label: 'Stamp Duty Payee',
+                                    value: formData.stampDutyPayee,
+                                    onChange: (v) => updateField('stampDutyPayee', v),
+                                    placeholder: 'Inland Revenue Authority of Singapore'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'renewal-months',
+                                    label: 'Option to Renew (months)',
+                                    value: formData.renewalTermMonths,
+                                    onChange: (v) => updateField('renewalTermMonths', v),
+                                    type: 'number',
+                                    placeholder: '12'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'ta-signing-days',
+                                    label: 'Days to sign TA after acceptance',
+                                    value: formData.taSigningDays,
+                                    onChange: (v) => updateField('taSigningDays', v),
+                                    type: 'number',
+                                    placeholder: '14'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'offer-valid',
+                                    label: 'Offer Valid Until (date)',
+                                    value: formData.offerValidDate,
+                                    onChange: (v) => updateField('offerValidDate', v),
+                                    type: 'date'
+                                }),
+                                formData.role === 'Seller/Landlord' && React.createElement(InputField, {
+                                    key: 'handover-date',
+                                    label: 'Property Handover Date (optional — defaults to lease start)',
+                                    value: formData.handoverDate,
+                                    onChange: (v) => updateField('handoverDate', v),
                                     type: 'date'
                                 })
                             ],
